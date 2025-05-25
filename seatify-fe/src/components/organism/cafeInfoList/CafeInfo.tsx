@@ -31,10 +31,9 @@ const isCafeOpenNow = (openingHoursJson: string | null) => {
 
     if (!period) return false;
 
-    const openTime = (p: any) =>
-      (p.open.hour ?? 0) * 60 + (p.open.minute ?? 0);
+    const openTime = (p: any) => (p.open.hour ?? 0) * 60 + (p.open.minute ?? 0);
     const closeTime = (p: any) =>
-      (p.close.hour ?? 0) * 60 + (p.close.minute ?? 0);
+      (p.close?.hour ?? 0) * 60 + (p.close?.minute ?? 0);
 
     const openMinutes = openTime(period);
     const closeMinutes = closeTime(period);

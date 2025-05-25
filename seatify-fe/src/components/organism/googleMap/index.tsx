@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { setCafeId } from '~/store/reducers/cafeIdSlice';
@@ -19,6 +19,26 @@ const GoogleMapComponent = () => {
     (state: RootState) => state.auth.auth.access_token
   );
   const isMapInitialized = useSelector(selectIsMapInitialized);
+
+  const currentViewingCafeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // ✅ cleanup 함수
+    return () => {
+      const currentCafe = currentViewingCafeRef.current;
+      if (currentCafe) {
+        fetch(
+          `http://localhost:8080/api/cafe-view/end?cafe_id=${currentCafe}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        ).catch((err) => console.warn('⛔ cafe-view end 실패:', err));
+      }
+    };
+  }, [accessToken]);
 
   const fetchNearbyCafes = async (lat: number, lng: number) => {
     const res = await fetch(`/api/cafe/cafes?lat=${lat}&lng=${lng}`);
@@ -97,13 +117,16 @@ const GoogleMapComponent = () => {
     }
 
     const loadGoogleMapScript = () =>
+      // eslint-disable-next-line consistent-return
       new Promise<void>((resolve, reject) => {
+        // eslint-disable-next-line no-promise-executor-return
         if (window.google && window.google.maps) return resolve();
 
         const existingScript = document.querySelector(
           `script[src^="https://maps.googleapis.com/maps/api/js"]`
         );
         if (existingScript)
+          // eslint-disable-next-line no-promise-executor-return
           return existingScript.addEventListener('load', () => resolve());
 
         const script = document.createElement('script');
@@ -140,8 +163,14 @@ const GoogleMapComponent = () => {
       const hasSaved = localStorage.getItem('cafes_saved') === 'true';
 
       if (!hasSaved) {
-        const firstNearby = await fetchNearbyCafes(firstSearchLocation.lat, firstSearchLocation.lng);
-        const secondNearby = await fetchNearbyCafes(secondSearchLocation.lat, secondSearchLocation.lng);
+        const firstNearby = await fetchNearbyCafes(
+          firstSearchLocation.lat,
+          firstSearchLocation.lng
+        );
+        const secondNearby = await fetchNearbyCafes(
+          secondSearchLocation.lat,
+          secondSearchLocation.lng
+        );
 
         // 두 번째 검색을 병렬로 실행
         const firstDetailedCafeList = await Promise.all(
@@ -182,8 +211,52 @@ const GoogleMapComponent = () => {
           },
         });
 
-        marker.addListener('click', () => {
-          dispatch(setCafeId({ cafeId: cafe.cafeId, commentId: '0' }));
+        marker.addListener('click', async () => {
+          const prevCafeId = currentViewingCafeRef.current;
+          const newCafeId = cafe.cafeId;
+
+          if (prevCafeId && prevCafeId !== newCafeId) {
+            await fetch(
+              `http://localhost:8080/api/cafe-view/end?cafe_id=${prevCafeId}`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              }
+            );
+          }
+
+          await fetch(
+            `http://localhost:8080/api/cafe-view/start?cafe_id=${newCafeId}`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            });
+
+          // ✅ 시청자 수 fetch
+          try {
+            const res = await fetch(
+              `http://localhost:8080/api/cafe-view/count?cafe_id=${newCafeId}`,
+              {
+                method: 'GET',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              }
+            );
+            const count = await res.json();
+            console.log(
+              `현재 ${newCafeId}번 카페를 보고 있는 사람 수: ${count}`
+            );
+          } catch (err) {
+            console.warn('실시간 시청자 수 가져오기 실패:', err);
+          }
+
+          currentViewingCafeRef.current = newCafeId;
+          dispatch(setCafeId({ cafeId: newCafeId, commentId: '0' }));
           dispatch(setNavigationContent('content'));
         });
       });
