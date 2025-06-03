@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 상세 댓글 컴포넌트
- */
+ 
 import { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import Image from 'next/image';

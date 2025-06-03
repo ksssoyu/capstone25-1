@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 구글 로그인 구현
- */
+ 
 
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';

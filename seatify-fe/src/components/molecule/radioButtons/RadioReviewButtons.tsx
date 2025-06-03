@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description  카페 리뷰 라디오 버튼들
- */
+ 
 import Image from 'next/image';
 
 import { Box, Typography, useTheme } from '@mui/material';

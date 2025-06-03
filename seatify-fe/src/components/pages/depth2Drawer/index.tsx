@@ -1,7 +1,4 @@
-/**
- * @createdBy 김해지
- * @description 메인 레이아웃 사이드 메뉴 Depth2
- */
+ 
 import { useQuery } from '@tanstack/react-query';
 import { List } from '@mui/material';
 

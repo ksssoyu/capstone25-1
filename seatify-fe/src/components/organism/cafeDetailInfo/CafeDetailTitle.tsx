@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description 카페 디테일 제목 컴포넌트(리뷰 등록)
- */
+ 
 
 import { useCallback, useMemo, useState } from 'react';
 

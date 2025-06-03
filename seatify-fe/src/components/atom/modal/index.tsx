@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description Modal 기본 틀
- */
+ 
 import { ReactNode } from 'react';
 
 import { Modal as MuiModal } from '@mui/material';

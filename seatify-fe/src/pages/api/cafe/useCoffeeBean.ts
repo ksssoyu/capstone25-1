@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 커피콩을 활용해서 카페 혼잡도 확인하는 api 함수
- */
+ 
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 

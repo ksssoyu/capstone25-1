@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카카오톡 로그인 기능과 로그인 페이지 구성
- */
+ 
 
 import Image from 'next/image';
 import { useRouter } from 'next/router';

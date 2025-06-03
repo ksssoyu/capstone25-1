@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description 실시간 혼잡도 확인 라벨 컴포넌트
- */
+ 
 
 import { Typography, useTheme } from '@mui/material';
 import { UnderlineButton } from '~/components/atom/buttons';

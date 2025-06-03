@@ -1,7 +1,4 @@
-/**
- * 권한이 필요 없는 빈 페이지 Layout
- * @returns Empty Layout
- */
+ 
 
 import { ReactNode } from 'react';
 

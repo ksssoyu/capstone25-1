@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 대댓글 컴포넌트
- */
+ 
 
 import {
   CafeCommentLayout,

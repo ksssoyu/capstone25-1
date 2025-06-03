@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description Radio 리뷰 버튼 관련 타입 정의
- */
+ 
 
 export enum Review {
   'cafeCongestion' = 'cafeCongestion',

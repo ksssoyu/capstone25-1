@@ -16,7 +16,6 @@ export const fetchSeats = async (cafeId: string, token: string) => {
     }
 
     const data = await res.json();
-    console.log('좌석 정보:', data);  // 데이터 확인용 로그
     return data;  // 좌석 정보 반환
   } catch (error) {
     // 요청이나 응답 처리 중 오류 발생 시 에러 출력

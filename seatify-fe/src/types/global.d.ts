@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/**
- * @createdBy 한수민
- * @description 전역 개체의 프로퍼티 타입 정의
- */
+ 
 
 // 컴파일러는 export/import 구문이 없는 파일은 스크립트로 인지
 // 스크립트가 존재하는 스코프에 속하기 때문에 다른 모듈은 이 타입을 인지할 수 없다

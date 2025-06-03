@@ -1,7 +1,4 @@
-/**
- * @createdBy 김해지
- * @description 메인 레이아웃 모바일용 App Bar
- */
+ 
 import Image from 'next/image';
 
 import { AppBar, Box, Toolbar, Typography } from '@mui/material';
@@ -33,19 +30,6 @@ const MobileAppBar = () => {
       <Toolbar>
         {/* Logo 영역 */}
         <Image src={Logo} alt="로고 이미지" />
-
-        {/* 잔여 커피콩 영역 */}
-        <Box display="flex" flexDirection="row" alignItems="center" mx={1}>
-          <Image src={CoffeeBean} alt="커피콩" />
-
-          <Typography variant="body2" component="div" ml={0.3} mr={0.5}>
-            잔여 커피콩
-          </Typography>
-
-          <Typography variant="h5" color="primary">
-            99
-          </Typography>
-        </Box>
 
         {/* 검색 및 프로필 영역 */}
         <Box

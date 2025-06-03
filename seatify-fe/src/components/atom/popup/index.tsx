@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description 기본 팝업
- */
+ 
 import { ReactNode } from 'react';
 
 import {

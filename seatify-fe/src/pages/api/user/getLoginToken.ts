@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description access 토큰을 header로 전달하면 jwt토큰 반환하는 api 함수
- */
+ 
 
 import axios from 'axios';
 import { LoginResponse } from '~/types/auth';

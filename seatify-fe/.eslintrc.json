@@ -32,12 +32,7 @@
     ],
     "prettier/prettier": ["error", { "endOfLine": "auto" }],
     "react/jsx-props-no-spreading": "off", // props로 받은 것 바로 props로 넘기기 허용
-    /**
-      파라미터로 받은 변수에 재할당 금지
-      [예외]
-      - props true 인 경우 ignorePropertyModificationsFor 의 배열이 있는 항목은 제외됨
-      - state로 이들이 지정된 매개변수
-    */
+
     "no-param-reassign": [
       "error",
       {

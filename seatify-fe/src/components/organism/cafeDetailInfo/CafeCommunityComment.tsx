@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 커뮤니티 댓글 컴포넌트
- */
+ 
 
 import { Typography, useTheme } from '@mui/material';
 

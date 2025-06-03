@@ -1,7 +1,4 @@
-/**
- * @createdBy 김해지
- * @description 권한이 필요한 페이지의 Layout
- */
+ 
 
 import { ReactNode, Suspense, useCallback, useState } from 'react';
 import Image from 'next/image';
@@ -34,10 +31,7 @@ const drawerItems: DrawerItem[] = [
 const query = '(min-width:0px) and (max-width:600px)';
 
 const MainLayout = ({ children }: MainLayoutProps) => {
-  /**
-   * Media Query Hook (SSR에서 동작)
-   * 너비가 [0-360] 픽셀이면 true를 반환
-   */
+   
   const isMobile = useMediaQuery(query, { noSsr: true });
 
   const navigate = useNavigationSelector();

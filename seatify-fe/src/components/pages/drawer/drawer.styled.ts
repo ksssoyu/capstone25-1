@@ -1,7 +1,4 @@
-/**
- * @createdBy 김해지
- * @description Drawer 에서 사용한 Styled Component
- */
+ 
 
 import {
   Drawer as MuiDrawer,

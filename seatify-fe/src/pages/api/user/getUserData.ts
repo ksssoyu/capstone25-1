@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description jwt 토큰과 role을 넣어 get 통신을 하면 user 정보를 반환하는 api 함수
- */
+ 
 
 const getUserData = async (token: string | undefined, role: string) => {
   try {

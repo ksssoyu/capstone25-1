@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 로그인 서비스에 따른 버튼 return
- */
+ 
 
 import { GoogleButton, KakaoButton } from '~/components/atom/buttons';
 

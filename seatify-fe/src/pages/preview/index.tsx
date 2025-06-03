@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description 공통 컴포넌트 미리 보기 화면
- */
+ 
 import { Box } from '@mui/material';
 
 import ButtonPreview from '~/components/pages/preview/ButtonPreview';

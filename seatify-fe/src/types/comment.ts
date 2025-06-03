@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 댓글 관련 타입 정의
- */
+ 
 
 export type Keywords =
   | '청결도'

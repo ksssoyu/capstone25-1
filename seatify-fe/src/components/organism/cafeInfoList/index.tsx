@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { Box, List, Typography, useMediaQuery, useTheme } from '@mui/material';
 
@@ -13,9 +13,8 @@ import {
 } from '~/store/reducers/navigateSlice';
 import { query } from '~/helpers/mobileQuery';
 import { setCafeId } from '~/store/reducers/cafeIdSlice';
-import { useSelector } from 'react-redux';
-import { RootState } from '~/store'; // RootState 필요
 
+import { RootState } from '~/store'; // RootState 필요
 import CafeInfo from './CafeInfo';
 import NoCafeComment from './NoCafeComment';
 
@@ -29,6 +28,8 @@ const CafeInfoListPage = ({ setOpenDepth2 }: CafeInfoListProps) => {
   const grayColor = theme.palette.grey[400];
   const navigate = useNavigationSelector();
 
+  const currentViewingCafeRef = useRef<string | null>(null);
+
   // 검색 결과 입력
   const [searchInput, setSearchInput] = useState('');
   const [filterCafe, setFilterCafe] = useState<CafesInfo[]>([]);
@@ -36,13 +37,19 @@ const CafeInfoListPage = ({ setOpenDepth2 }: CafeInfoListProps) => {
   const isMobile = useMediaQuery(query, { noSsr: true });
 
   // ✅ accessToken 가져오기
-  const accessToken = useSelector((state: RootState) => state.auth.auth.access_token);
+  const accessToken = useSelector(
+    (state: RootState) => state.auth.auth.access_token
+  );
 
   // ✅ accessToken 전달
   // 전체 카페 정보 가져오는 react query 문
-  const { data, isLoading } = useQuery(['cafeList'], () => getAllCafeInfo(accessToken), {
-    enabled: !!accessToken, // accessToken이 있을 때만 쿼리 실행
-  });
+  const { data, isLoading } = useQuery(
+    ['cafeList'],
+    () => getAllCafeInfo(accessToken),
+    {
+      enabled: !!accessToken, // accessToken이 있을 때만 쿼리 실행
+    }
+  );
 
   if (isLoading) {
     return <div style={{ padding: '2rem' }}>카페 리스트를 불러오는 중...</div>;
@@ -67,16 +74,65 @@ const CafeInfoListPage = ({ setOpenDepth2 }: CafeInfoListProps) => {
 
   // 카페 아이템을 클릭했을 때 실행
   const cafeClickHandler = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      const prevCafeId = currentViewingCafeRef.current;
+      const newCafeId = id;
+
+      if (prevCafeId && prevCafeId !== newCafeId) {
+        try {
+          await fetch(
+            `http://localhost:8080/api/cafe-view/end?cafe_id=${prevCafeId}`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+        } catch (err) {
+          console.warn('이전 카페 종료 실패:', err);
+        }
+      }
+
+      try {
+        // ✅ 새 카페 시청 시작
+        await fetch(
+          `http://localhost:8080/api/cafe-view/start?cafe_id=${newCafeId}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        currentViewingCafeRef.current = newCafeId;
+
+        // ✅ 시청자 수 조회
+        const res = await fetch(
+          `http://localhost:8080/api/cafe-view/count?cafe_id=${newCafeId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+        const count = await res.json();
+        console.log(`현재 ${newCafeId}번 카페를 보고 있는 사람 수: ${count}`);
+      } catch (err) {
+        console.warn('새 카페 시작 또는 시청자 수 조회 실패:', err);
+      }
+
+      // ✅ 기존 로직
       setOpenDepth2(true);
-      dispatch(setCafeId({ cafeId: id, commentId: '' }));
+      dispatch(setCafeId({ cafeId: newCafeId, commentId: '' }));
       if (navigate === 'search-list') {
         dispatch(setNavigationContent('search-detail'));
       } else {
         dispatch(setNavigationContent('content'));
       }
     },
-    [setOpenDepth2, dispatch, navigate]
+    [setOpenDepth2, dispatch, navigate, accessToken, data]
   );
 
   return (
@@ -121,10 +177,10 @@ const CafeInfoListPage = ({ setOpenDepth2 }: CafeInfoListProps) => {
 
         {/* 검색 후 카페 리스트 1개 이상일 때 */}
         {(navigate === 'search-list' ||
-            navigate === 'search-detail' ||
-            navigate === 'search-write' ||
-            navigate === 'search-re-comment' ||
-            navigate === 'search-comment') &&
+          navigate === 'search-detail' ||
+          navigate === 'search-write' ||
+          navigate === 'search-re-comment' ||
+          navigate === 'search-comment') &&
           filterCafe.length > 0 && (
             <>
               {filterCafe.map((filter: CafesInfo, index: number) => (

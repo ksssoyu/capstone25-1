@@ -1,7 +1,3 @@
-/**
- * @createdBy 한수민
- * @description 구글 로그인 버튼
- */
 import Image from 'next/image';
 
 import { styled } from 'styled-components';

@@ -1,9 +1,9 @@
 import { useTheme } from '@mui/material';
 
 import { CafeInfo } from '~/types/cafeInfo';
-import CafeCongestionStatus from './CafeCongestionStatus';
 import CafeDetailTitle from './CafeDetailTitle';
 import { CafeContentContainer } from './cafeDetailInfo.styled';
+import CafeCongestionStatus from "~/components/organism/cafeDetailInfo/CafeCongestionStatus";
 
 const decodeHtmlEntities = (str: string) => {
   const textarea = document.createElement('textarea');
@@ -45,9 +45,11 @@ const isCafeOpenNow = (openingHours: string | null | undefined): boolean => {
 
 interface DetailProps {
   data: CafeInfo;
+  seatCongestion: '1' | '2' | '3';  // ✅ 새로 추가
+  token: string;                   // 좌석 조회할 수도 있으므로 필요시 추가
 }
 
-const CafeDetailTitleHeader = ({ data }: DetailProps) => {
+const CafeDetailTitleHeader = ({ data, seatCongestion }: DetailProps) => {
   const theme = useTheme();
   const grayColor = theme.palette.grey[100];
   const openingHours = data.openingHours;
@@ -66,7 +68,7 @@ const CafeDetailTitleHeader = ({ data }: DetailProps) => {
         openStatus={openStatusText}
         address={data.address}
       />
-      <CafeCongestionStatus congestion={data.averageCongestion} />
+      <CafeCongestionStatus congestion={seatCongestion} />
     </CafeContentContainer>
   );
 };

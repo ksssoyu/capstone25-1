@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description 모달 컴포넌트 미리보기
- */
+ 
 import { useCallback, useState } from 'react';
 
 import { Box, Typography } from '@mui/material';

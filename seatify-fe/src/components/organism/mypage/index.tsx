@@ -1,7 +1,4 @@
-/**
- * @createdBy 김해지
- * @description 마이페이지
- */
+ 
 
 import { Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';

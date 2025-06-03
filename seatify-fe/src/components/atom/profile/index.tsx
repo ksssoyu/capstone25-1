@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description 프로필 이미지
- */
+ 
 import DefaultProfile from '~/static/images/profile.png';
 import { BoxProps } from '@mui/material';
 import { Background, ProfileImage } from './profile.styled';

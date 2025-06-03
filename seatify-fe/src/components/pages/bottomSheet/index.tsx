@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description [모바일] 메인 하단 카페 목록용 Bottom Sheet
- */
+ 
 import { useCallback, useState, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useDispatch } from 'react-redux';

@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description 팝업 컴포넌트 미리보기
- */
+ 
 import { useCallback, useMemo, useState } from 'react';
 
 import { Box, Typography } from '@mui/material';

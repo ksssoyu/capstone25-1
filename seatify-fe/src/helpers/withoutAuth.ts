@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 로그인 페이지에서 처리하는 미들웨어 함수
- */
+ 
 
 import { NextRequest, NextResponse } from 'next/server';
 

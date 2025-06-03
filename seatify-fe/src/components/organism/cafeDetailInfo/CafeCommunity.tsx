@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description 카페 커뮤니티 컴포넌트
- */
+ 
 
 import { useDispatch } from 'react-redux';
 

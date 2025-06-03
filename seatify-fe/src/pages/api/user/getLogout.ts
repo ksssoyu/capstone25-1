@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description access token을 header에 보내면 refresh token을 만료시켜 로그아웃시켜주는 api 함수
- */
+ 
 
 import axios from 'axios';
 import { removeCookie } from '~/helpers/cookie';

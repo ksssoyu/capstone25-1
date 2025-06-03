@@ -1,8 +1,3 @@
-/**
- * @createdBy 한수민
- * @description 글쓰기 버튼
- */
-
 import styled from 'styled-components';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';

@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 댓글 삭제하는 api 함수
- */
+ 
 
 import { customAxios } from '~/utils/customAxios';
 

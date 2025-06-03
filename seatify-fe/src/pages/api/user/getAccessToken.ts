@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description refresh token으로 access token 재발급 받는 api 함수
- */
+ 
 
 const getAccessToken = async (token: string) => {
   try {

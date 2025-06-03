@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 상세 댓글 작성 input 컴포넌트
- */
+ 
 
 import { useDispatch } from 'react-redux';
 

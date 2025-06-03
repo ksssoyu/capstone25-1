@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 상세 댓글 삭제 모달
- */
+ 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Typography, useMediaQuery } from '@mui/material';

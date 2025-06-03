@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description SVG 태그 문자열을 구성하여 반환
- */
+ 
 
 import {
   greenRadio,

@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 댓글 작성 시 선택 버튼 타입 정의
- */
+ 
 
 import Clean from '~/static/svg/clean.svg';
 import Power from '~/static/svg/power.svg';

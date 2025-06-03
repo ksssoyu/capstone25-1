@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
 
-/**
- *
- * @param key 저장소 데이터 키
- * @param defaultValue  저장소 데이터 키 값에 저장할 기본 값
- * @returns [value, setLocalStorageValue]
- */
+ 
 const useLocalStorage = <ValueType>(key: string, defaultValue: ValueType) => {
   const [value, setValue] = useState(() => {
     const storedValue =

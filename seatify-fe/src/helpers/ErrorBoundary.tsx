@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 공통 에러처리를 위한 ErrorBoundary 컴포넌트
- */
+ 
 
 import {
   Component,

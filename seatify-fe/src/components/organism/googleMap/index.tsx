@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { setCafeId } from '~/store/reducers/cafeIdSlice';
@@ -8,10 +8,11 @@ import {
   selectIsMapInitialized,
 } from '~/store/reducers/mapSlice';
 
-import { encodeSVG } from './encodeSVG';
-import { tagSvgRaw } from './tagSvgRaw';
 import queryClient from '~/helpers/queryClient';
 import { setNavigationContent } from '~/store/reducers/navigateSlice';
+import { fetchSeats } from '~/pages/api/seat/getSeats';
+import { tagSvgRaw } from './tagSvgRaw';
+import { encodeSVG } from './encodeSVG';
 
 const GoogleMapComponent = () => {
   const dispatch = useDispatch();
@@ -21,112 +22,68 @@ const GoogleMapComponent = () => {
   const isMapInitialized = useSelector(selectIsMapInitialized);
 
   const currentViewingCafeRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    // ✅ cleanup 함수
-    return () => {
-      const currentCafe = currentViewingCafeRef.current;
-      if (currentCafe) {
-        fetch(
-          `http://localhost:8080/api/cafe-view/end?cafe_id=${currentCafe}`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        ).catch((err) => console.warn('⛔ cafe-view end 실패:', err));
-      }
-    };
-  }, [accessToken]);
-
-  const fetchNearbyCafes = async (lat: number, lng: number) => {
-    const res = await fetch(`/api/cafe/cafes?lat=${lat}&lng=${lng}`);
-    if (!res.ok) throw new Error('Failed to fetch nearby cafes');
-    const data = await res.json();
-    return data.results || [];
-  };
-
-  const saveCafesToDB = async (token: string, cafes: any[]) => {
-    const res = await fetch('http://localhost:8080/api/cafes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        accept: '*/*',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(cafes),
-    });
-    if (!res.ok) throw new Error('Spring API DB 저장 실패');
-  };
-
-  const fetchPlaceDetails = async (placeId: string) => {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const { Place } = (await google.maps.importLibrary(
-      'places'
-    )) as google.maps.PlacesLibrary;
-
-    const place = new Place({
-      id: placeId,
-      requestedLanguage: 'ko',
-    });
-
-    await place.fetchFields({
-      fields: [
-        'id',
-        'displayName',
-        'formattedAddress',
-        'location',
-        'nationalPhoneNumber',
-        'businessStatus',
-        'regularOpeningHours',
-        'reviews',
-        'rating',
-      ],
-    });
-
-    return {
-      placeId: place.id,
-      name: place.displayName,
-      latitude: place.location?.lat?.() || '',
-      longitude: place.location?.lng?.() || '',
-      address: place.formattedAddress || '',
-      phoneNumber: place.nationalPhoneNumber || '',
-      status: place.businessStatus || '',
-      openingHours: JSON.stringify(place.regularOpeningHours || {}),
-      reviews: JSON.stringify(place.reviews || []),
-      rating: place.rating?.toString() || '',
-    };
-  };
+  const markersRef = useRef<{ [cafeId: string]: google.maps.Marker }>({});
+  const [viewerCount, setViewerCount] = useState<number | null>(null);
 
   const fetchCafesFromDB = async (token: string) => {
     const res = await fetch('http://localhost:8080/api/cafes', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('DB에서 카페 정보 불러오기 실패');
     return res.json();
   };
 
-  useEffect(() => {
-    if (!accessToken) {
-      console.warn('⛔ accessToken 없음 - 로그인 후에 지도 초기화됩니다.');
-      return;
+  const refreshCafeMarkers = async () => {
+    const cafes = await fetchCafesFromDB(accessToken);
+    for (const cafe of cafes) {
+      const seats = await fetchSeats(cafe.cafeId, accessToken);
+      const occupied = seats.filter((s) => s.occupied).length;
+      const ratio = seats.length > 0 ? occupied / seats.length : 0;
+      const seatCongestion = ratio <= 0.3 ? '1' : ratio <= 0.7 ? '2' : '3';
+      const newSvg = tagSvgRaw(cafe.name, seatCongestion);
+
+      const marker = markersRef.current[cafe.cafeId];
+      if (marker) {
+        marker.setIcon({
+          url: encodeSVG(newSvg),
+          scaledSize: new window.google.maps.Size(181, 65),
+        });
+      }
     }
+  };
+
+  useEffect(() => {
+    const unload = () => {
+      localStorage.removeItem('map_initialized');
+    };
+    window.addEventListener('unload', unload);
+
+    // ✅ 이 부분은 return보다 위에 있어야 정상 동작함!
+    const mapInitFlag = localStorage.getItem('map_initialized') === 'true';
+    if (!accessToken || isMapInitialized || mapInitFlag) return;
+
+    const sendTokenToFlask = async () => {
+      try {
+        await fetch('http://localhost:5001/set-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token: accessToken }),
+        });
+        console.log('✅ Flask 서버에 accessToken 전달 완료');
+      } catch (err) {
+        console.error('⛔ Flask 서버 전달 실패:', err);
+      }
+    };
 
     const loadGoogleMapScript = () =>
-      // eslint-disable-next-line consistent-return
       new Promise<void>((resolve, reject) => {
-        // eslint-disable-next-line no-promise-executor-return
         if (window.google && window.google.maps) return resolve();
-
         const existingScript = document.querySelector(
           `script[src^="https://maps.googleapis.com/maps/api/js"]`
         );
         if (existingScript)
-          // eslint-disable-next-line no-promise-executor-return
           return existingScript.addEventListener('load', () => resolve());
 
         const script = document.createElement('script');
@@ -138,12 +95,64 @@ const GoogleMapComponent = () => {
         document.body.appendChild(script);
       });
 
-    const initMap = async () => {
-      const center = { lat: 37.504992, lng: 126.953561 }; // 기존 첫 번째 위치
+    const fetchNearbyCafes = async (lat: number, lng: number) => {
+      const res = await fetch(`/api/cafe/cafes?lat=${lat}&lng=${lng}`);
+      if (!res.ok) throw new Error('Failed to fetch nearby cafes');
+      const data = await res.json();
+      return data.results || [];
+    };
 
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const saveCafesToDB = async (token: string, cafes: any[]) => {
+      const res = await fetch('http://localhost:8080/api/cafes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(cafes),
+      });
+      if (!res.ok) throw new Error('Spring API DB 저장 실패');
+    };
+
+    const fetchPlaceDetails = async (placeId: string) => {
+      // @ts-ignore
+      const { Place } = (await google.maps.importLibrary(
+        'places'
+      )) as google.maps.PlacesLibrary;
+
+      const place = new Place({ id: placeId, requestedLanguage: 'ko' });
+      await place.fetchFields({
+        fields: [
+          'id',
+          'displayName',
+          'formattedAddress',
+          'location',
+          'nationalPhoneNumber',
+          'businessStatus',
+          'regularOpeningHours',
+          'reviews',
+          'rating',
+        ],
+      });
+
+      return {
+        placeId: place.id,
+        name: place.displayName,
+        latitude: place.location?.lat?.() || '',
+        longitude: place.location?.lng?.() || '',
+        address: place.formattedAddress || '',
+        phoneNumber: place.nationalPhoneNumber || '',
+        status: place.businessStatus || '',
+        openingHours: JSON.stringify(place.regularOpeningHours || {}),
+        reviews: JSON.stringify(place.reviews || []),
+        rating: place.rating?.toString() || '',
+      };
+    };
+
+    const initMap = async () => {
       const map = new window.google.maps.Map(document.getElementById('map')!, {
-        center,
+        center: { lat: 37.504992, lng: 126.953561 },
         zoom: 18,
         disableDefaultUI: true,
         styles: [
@@ -154,40 +163,32 @@ const GoogleMapComponent = () => {
           },
         ],
       });
-
       map.setOptions({ zoomControl: true });
 
-      const firstSearchLocation = { lat: 37.504992, lng: 126.953561 }; // 첫 번째 검색 위치
-      const secondSearchLocation = { lat: 37.507416, lng: 126.960169 }; // 두 번째 검색 위치
-
       const hasSaved = localStorage.getItem('cafes_saved') === 'true';
+      const firstSearch = { lat: 37.504992, lng: 126.953561 };
+      const secondSearch = { lat: 37.507416, lng: 126.960169 };
 
       if (!hasSaved) {
         const firstNearby = await fetchNearbyCafes(
-          firstSearchLocation.lat,
-          firstSearchLocation.lng
+          firstSearch.lat,
+          firstSearch.lng
         );
         const secondNearby = await fetchNearbyCafes(
-          secondSearchLocation.lat,
-          secondSearchLocation.lng
+          secondSearch.lat,
+          secondSearch.lng
         );
-
-        // 두 번째 검색을 병렬로 실행
-        const firstDetailedCafeList = await Promise.all(
-          firstNearby.map((place: any) => fetchPlaceDetails(place.place_id))
-        );
-        const secondDetailedCafeList = await Promise.all(
-          secondNearby.map((place: any) => fetchPlaceDetails(place.place_id))
-        );
-
-        // 두 검색 결과 합침
-        const detailedCafeList = [
-          ...firstDetailedCafeList,
-          ...secondDetailedCafeList,
+        const detailedList = [
+          ...(await Promise.all(
+            firstNearby.map((p: any) => fetchPlaceDetails(p.place_id))
+          )),
+          ...(await Promise.all(
+            secondNearby.map((p: any) => fetchPlaceDetails(p.place_id))
+          )),
         ];
 
         try {
-          await saveCafesToDB(accessToken, detailedCafeList);
+          await saveCafesToDB(accessToken, detailedList);
           queryClient.invalidateQueries(['cafeList']);
           localStorage.setItem('cafes_saved', 'true');
         } catch (e) {
@@ -196,12 +197,17 @@ const GoogleMapComponent = () => {
       }
 
       const cafes = await fetchCafesFromDB(accessToken);
-      cafes.forEach((cafe: any) => {
+      for (const cafe of cafes) {
         const position = {
           lat: parseFloat(cafe.latitude),
           lng: parseFloat(cafe.longitude),
         };
-        const svg = tagSvgRaw(cafe.name, cafe.averageCongestion || '1');
+        const seats = await fetchSeats(cafe.cafeId, accessToken);
+        const occupied = seats.filter((s) => s.occupied).length;
+        const ratio = seats.length > 0 ? occupied / seats.length : 0;
+        const seatCongestion = ratio <= 0.3 ? '1' : ratio <= 0.7 ? '2' : '3';
+
+        const svg = tagSvgRaw(cafe.name, seatCongestion);
         const marker = new window.google.maps.Marker({
           position,
           map,
@@ -212,63 +218,87 @@ const GoogleMapComponent = () => {
         });
 
         marker.addListener('click', async () => {
-          const prevCafeId = currentViewingCafeRef.current;
-          const newCafeId = cafe.cafeId;
+          const prevId = currentViewingCafeRef.current;
+          const newId = cafe.cafeId;
 
-          if (prevCafeId && prevCafeId !== newCafeId) {
+          if (prevId && prevId !== newId) {
             await fetch(
-              `http://localhost:8080/api/cafe-view/end?cafe_id=${prevCafeId}`,
+              `http://localhost:8080/api/cafe-view/end?cafe_id=${prevId}`,
               {
                 method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                },
+                headers: { Authorization: `Bearer ${accessToken}` },
               }
             );
           }
 
           await fetch(
-            `http://localhost:8080/api/cafe-view/start?cafe_id=${newCafeId}`,
+            `http://localhost:8080/api/cafe-view/start?cafe_id=${newId}`,
             {
               method: 'POST',
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            });
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
 
-          // ✅ 시청자 수 fetch
           try {
             const res = await fetch(
-              `http://localhost:8080/api/cafe-view/count?cafe_id=${newCafeId}`,
+              `http://localhost:8080/api/cafe-view/count?cafe_id=${newId}`,
               {
-                method: 'GET',
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                },
+                headers: { Authorization: `Bearer ${accessToken}` },
               }
             );
             const count = await res.json();
-            console.log(
-              `현재 ${newCafeId}번 카페를 보고 있는 사람 수: ${count}`
-            );
-          } catch (err) {
-            console.warn('실시간 시청자 수 가져오기 실패:', err);
+            setViewerCount(count);
+          } catch {
+            console.warn('실시간 시청자 수 가져오기 실패');
+            setViewerCount(null);
           }
 
-          currentViewingCafeRef.current = newCafeId;
-          dispatch(setCafeId({ cafeId: newCafeId, commentId: '0' }));
+          currentViewingCafeRef.current = newId;
+          dispatch(setCafeId({ cafeId: newId, commentId: '0' }));
           dispatch(setNavigationContent('content'));
         });
-      });
+      }
 
-      const controlsDiv = document.createElement('div');
-      controlsDiv.classList.add('custom-map-controls');
-      map.controls[window.google.maps.ControlPosition.TOP_LEFT].push(
-        controlsDiv
-      );
+      const requestSeatDetection = async () => {
+        for (const cafe of cafes) {
+          if (cafe.cafeId === "1" || cafe.cafeId === "2") {
+            try {
+              await fetch(
+                  `http://localhost:5001/run-detect?cafe_id=${cafe.cafeId}`,
+                  {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                  }
+              );
+              console.log(`✅ 좌석 감지 요청 완료: ${cafe.cafeId}`);
+            } catch (err) {
+              console.error(`⛔ 감지 요청 실패: ${cafe.cafeId}`, err);
+            }
+          }
+        }
+
+        // 감지 요청 후 마커 갱신
+        try {
+          await refreshCafeMarkers();
+          console.log('🎯 마커 혼잡도 갱신 완료');
+        } catch (err) {
+          console.error('⛔ 마커 갱신 실패:', err);
+        }
+      };
+
+      sendTokenToFlask();
+
+      console.log('🎯 불러온 카페 목록:', cafes);
+
+      if (cafes.length > 0 && accessToken) {
+        requestSeatDetection();
+      }
 
       dispatch(setInitialized());
       localStorage.setItem('map_initialized', 'true');
+      return () => {
+        window.removeEventListener('unload', unload);
+      };
     };
 
     loadGoogleMapScript()

@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 상세 댓글 페이지 depth2 컴포넌트
- */
+ 
 import React, { useCallback, useState } from 'react';
 
 import { Comment } from '~/types/cafeInfo';

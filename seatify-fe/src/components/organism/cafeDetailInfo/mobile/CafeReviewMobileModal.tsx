@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description  [모바일] 카페 리뷰 작성 모달
- */
+ 
 import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 

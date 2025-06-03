@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description 검색했을 시 카페 디테일 페이지 상태 표시 (1: 여유, 2: 보통, 3: 혼잡, 0: 모름)
- */
+ 
 
 import { Typography, useTheme } from '@mui/material';
 import { CafeSearchBox } from './radioButton.styled';

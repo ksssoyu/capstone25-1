@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 리뷰 등록하는 api 함수
- */
+ 
 
 import { customAxios } from '~/utils/customAxios';
 

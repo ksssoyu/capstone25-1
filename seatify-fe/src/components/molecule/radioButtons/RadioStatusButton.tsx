@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description 카페 상태 표시 (1: 여유, 2: 보통, 3: 혼잡, 0: 모름)
- */
+ 
 
 import { Typography } from '@mui/material';
 

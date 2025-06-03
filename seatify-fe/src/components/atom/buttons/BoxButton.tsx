@@ -1,8 +1,3 @@
-/**
- * @createdBy 김해지
- * @description 박스형 버튼 Component
- */
-
 import {
   Button,
   useTheme,

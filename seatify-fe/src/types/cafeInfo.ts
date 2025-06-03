@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 카페 정보 관련 타입 정의 모음
- */
+ 
 
 import { EngKeywords } from './comment';
 
@@ -16,7 +13,6 @@ export interface CafeInfo {
   rating: string; // ✅ 추가됨
   openingHours: string; // ✅ JSON 문자열 (파싱 가능)
   reviews: string; // ✅ JSON 문자열
-  averageCongestion?: '0' | '1' | '2' | '3'; // optional: 계산 값일 경우
   commentReviewCount?: string; // optional: 리뷰/댓글 수 합산
   hasPlugCount: number;
   isCleanCount: number;

@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description Radio 관련 타입 정의 모음
- */
+ 
 
 export type TCafeCongestion = '1' | '2' | '3' | '0';
 

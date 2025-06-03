@@ -1,7 +1,4 @@
-/**
- * @createdBy 김해지
- * @description 사이드 고정 메뉴
- */
+ 
 import { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
 

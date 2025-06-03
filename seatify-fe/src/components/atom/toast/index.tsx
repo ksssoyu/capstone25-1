@@ -1,7 +1,4 @@
-/**
- * @createBy 김해지
- * @description 토스트 메시지
- */
+ 
 import { Alert, AlertColor, Snackbar } from '@mui/material';
 
 interface ToastProps {

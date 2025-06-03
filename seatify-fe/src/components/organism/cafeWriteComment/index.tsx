@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description 카페 댓글 작성 페이지
- */
+ 
 
 import { useState, useCallback } from 'react';
 import { useDispatch } from 'react-redux';

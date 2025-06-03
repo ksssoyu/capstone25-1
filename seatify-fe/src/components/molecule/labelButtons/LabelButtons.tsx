@@ -1,7 +1,4 @@
-/**
- * @createdBy 한수민
- * @description 댓글 작성 시 선택 버튼 컴포넌트
- */
+ 
 
 import Image from 'next/image';
 

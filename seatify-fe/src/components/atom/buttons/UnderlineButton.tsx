@@ -1,7 +1,4 @@
-/**
- * @createBy 한수민
- * @description 밑줄 버튼
- */
+ 
 
 import { Button, Typography } from '@mui/material';
 import styled from 'styled-components';

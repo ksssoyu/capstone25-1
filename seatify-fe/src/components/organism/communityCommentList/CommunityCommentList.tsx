@@ -15,17 +15,30 @@ const fetchComments = async (cafeId: string, token: string) => {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     },
   });
 
   if (!res.ok) {
-    throw new Error('댓글을 불러오는 데 실패했습니다.');
+    console.error(`응답 실패: ${res.status}`);
+    return [];
   }
 
-  const data = await res.json();
-  return data;
+  const text = await res.text();
+
+  if (!text) {
+    console.warn('빈 응답 수신');
+    return [];
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON 파싱 에러:', e);
+    return [];
+  }
 };
+
 
 const getStarRating = (rating?: number) => {
   const stars = [];
