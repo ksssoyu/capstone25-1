@@ -9,7 +9,6 @@ import {
   Typography,
 } from '@mui/material';
 import { CafeInfo } from '~/types/cafeInfo';
-import { useEffect, useState } from 'react';
 import SeatList from '~/components/organism/seatList/SeatList';
 import ReviewList from '~/components/organism/reviewList/ReviewList';
 import CommunityCommentList from '~/components/organism/communityCommentList/CommunityCommentList';
@@ -23,6 +22,8 @@ import { setNavigationContent } from '~/store/reducers/navigateSlice';
 import CafeDetailTitleHeader from './CafeDetailTitleHeader';
 import { CafeDetailContainer } from './cafeDetailInfo.styled';
 import CafePlaceInfo from './CafePlaceInfo';
+import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 
 interface DetailProps {
   data: CafeInfo;
@@ -74,6 +75,7 @@ const CafeDetailInfo = ({ data }: DetailProps) => {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatInfo, setSeatInfo] = useState({ total: 0, vacant: 0 });
   const [seatCongestion, setSeatCongestion] = useState<'1' | '2' | '3'>('1');
+  const videoRef = useRef<HTMLVideoElement>(null);  // ✅ 비디오 ref 추가
 
   const cafe = data.cafeInfo;
   const decodedReviews =
@@ -86,8 +88,40 @@ const CafeDetailInfo = ({ data }: DetailProps) => {
 
   const dispatch = useDispatch();
 
-  const handleClickOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
+  const handleClickOpen = async () => {
+    setOpen(true);
+
+    // detect 시작
+    try {
+      await axios.post('http://localhost:5001/start-detect', { cafeId: cafe.cafeId });
+      console.log('Detect 시작 요청 성공');
+    } catch (err) {
+      console.error('Detect 시작 요청 실패:', err);
+    }
+  };
+
+  const handleClose = async () => {
+    setOpen(false);
+
+    // detect 중지 요청 (모달 닫을 때)
+    try {
+      await axios.post('http://localhost:5001/stop-detect', { cafeId: cafe.cafeId });
+      console.log('Detect 중지 요청 성공');
+    } catch (err) {
+      console.error('Detect 중지 요청 실패:', err);
+    }
+  };
+
+  // ✅ 영상 자동재생 안정성 보장
+  useEffect(() => {
+    if (open && cafe.cafeId === '20' && videoRef.current) {
+      const videoEl = videoRef.current;
+      videoEl.play().catch((e) => {
+        console.warn('Autoplay 실패:', e);
+      });
+    }
+  }, [open, cafe.cafeId]);
+
   const handleCommentDialogOpen = () => setCommentOpen(true);
   const handleCommentDialogClose = () => setCommentOpen(false);
 
@@ -180,7 +214,7 @@ const CafeDetailInfo = ({ data }: DetailProps) => {
 
     const startPolling = () => {
       fetchSeatData(); // 최초 호출
-      if (cafe.cafeId === '41') {
+      if (cafe.cafeId === '20') {
         console.log('Polling started!');
         intervalId = setInterval(fetchSeatData, 3000);
       }
@@ -222,11 +256,30 @@ const CafeDetailInfo = ({ data }: DetailProps) => {
                 <DialogTitle><Typography variant="h2">좌석 상세 정보</Typography></DialogTitle>
                 <DialogContent sx={{ textAlign: 'center' }}>
                   <Box mb={2}>
-                    <img src={`images/cafe/${cafe.cafeId}.png`} alt={`Cafe ${cafe.cafeId}`} style={{ width: '100%', maxWidth: '600px', objectFit: 'contain', borderRadius: '8px' }} />
+                    {cafe.cafeId === '20' ? (
+                        <video
+                            ref={videoRef}
+                            width="100%"
+                            controls
+                            muted
+                            autoPlay
+                            playsInline  // ✅ 모바일 브라우저 호환성 개선
+                            src="/videos/cafe.mp4"
+                            style={{ borderRadius: '8px' }}
+                        />
+                    ) : (
+                        <img
+                            src={`/images/cafe/${cafe.cafeId}.png`}
+                            alt={`Cafe ${cafe.cafeId}`}
+                            style={{ width: '100%', borderRadius: '8px' }}
+                        />
+                    )}
                   </Box>
                   <SeatList seats={seats} />
                 </DialogContent>
-                <DialogActions><Button onClick={handleClose} color="primary">닫기</Button></DialogActions>
+                <DialogActions>
+                  <Button onClick={handleClose} color="primary">닫기</Button>
+                </DialogActions>
               </Dialog>
 
               {/* 추천 Dialog */}

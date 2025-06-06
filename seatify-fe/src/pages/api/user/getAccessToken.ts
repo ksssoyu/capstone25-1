@@ -1,4 +1,4 @@
- 
+
 
 const getAccessToken = async (token: string) => {
   try {
@@ -15,6 +15,8 @@ const getAccessToken = async (token: string) => {
     });
 
     const data = await response.json();
+    // for debug
+    console.log('[refresh 응답ㅋㅋ]', data);
     return data;
   } catch (error) {
     return error;

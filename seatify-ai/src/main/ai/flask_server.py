@@ -15,7 +15,10 @@ import subprocess
 app = Flask(__name__)
 CORS(app)  # ✅ 모든 origin 허용
 
-# 전역에 token 저장
+
+# === 글로벌 변수 ===
+detect_thread = None
+stop_flag = threading.Event()
 access_token = None
 
 @app.route('/set-token', methods=['POST'])
@@ -32,27 +35,6 @@ def get_token():
     else:
         return jsonify({"error": "No token set"}), 404
 
-'''
-@app.route('/run-detect', methods=['POST'])
-def run_detect():
-    cafe_id = request.args.get("cafe_id")
-    if not cafe_id:
-        return jsonify({"error": "cafe_id is required"}), 400
-
-    # ✅ 디버깅용: cafe_id가 1 또는 2일 때만 실행
-    if cafe_id not in ['1', '2']:
-        return jsonify({"message": f"Detection skipped for cafe_id {cafe_id} (debug mode)"}), 200
-
-    try:
-        subprocess.run(["python", "detect_run1.py", "--store-id", cafe_id], check=True)
-        subprocess.run(["python", "detect_run2.py", "--store-id", cafe_id], check=True)
-
-        return jsonify({"message": f"Detection started for {cafe_id}"}), 200
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": f"Detection script failed: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-'''
 
 # 기존 calibration 관련 함수 그대로 포함
 def load_calibration_from_aruco(image_path):
@@ -150,53 +132,66 @@ def upload_image():
         return jsonify({"error": str(e)}), 500
 
 
-# 자연수 추출 함수
+# 유틸: 자연수 추출
 def extract_frame_number(filename):
     match = re.search(r"frame_(\d+)\.jpg", filename)
     if match:
         return int(match.group(1))
-    return -1  # 혹시라도 패턴 안 맞으면 뒤로 밀림
+    return -1
 
-import subprocess
-import glob
-import time
-import os
+# === detect loop ===
+def detect_loop(cafe_id):
+    frame_files = glob.glob("frames/*.jpg")
+    frame_files.sort(key=extract_frame_number)
 
-def continuous_detection():
-    cafe_id = "41"
-    calibration_path = os.path.join("calibration", f"store{cafe_id}.json")
-
-    while not os.path.exists(calibration_path):
-        print(f"⚠️ Calibration file not found for cafe_id {cafe_id}. Waiting...")
-        time.sleep(10)
-
-    print(f"✅ Calibration file found for cafe_id {cafe_id}. Starting detection loop...")
-
-    while True:
-        frame_files = glob.glob("frames/*.jpg")
-        frame_files.sort(key=extract_frame_number)
-
+    try:
         for frame_path in frame_files:
-            try:
-                print(f"🎯 Detecting frame: {frame_path}")
-                result = subprocess.run(["python", "detect_run1.py", "--store-id", cafe_id, "--input-path", frame_path])
+            if stop_flag.is_set():
+                print("🛑 Detection 중단됨.")
+                break
 
-                if result.returncode == 0:
-                    print("✅ detect_run1 성공 → detect_run2 실행")
-                    subprocess.run(["python", "detect_run2.py", "--store-id", cafe_id, "--input-path", frame_path], check=True)
-                else:
-                    print("⚠️ detect_run1 실패 → detect_run2 스킵")
+            print(f"🎯 Detecting frame: {frame_path}")
+            result = subprocess.run(["python", "detect_run1.py", "--store-id", cafe_id, "--input-path", frame_path])
+            if result.returncode == 0:
+                subprocess.run(["python", "detect_run2.py", "--store-id", cafe_id, "--input-path", frame_path])
+            else:
+                print(f"⚠️ detect_run1 실패: {frame_path}, detect_run2 스킵")
 
-            except subprocess.CalledProcessError as e:
-                print(f"⛔ Detection failed: {str(e)}")
-            except Exception as e:
-                print(f"⛔ Unexpected error: {str(e)}")
+            time.sleep(0.5)  # 너무 과부하 안 주게 약간 쉬어줌
 
-        print("⏳ 모든 프레임 1회 감지 완료 → 60초 대기")
-        time.sleep(60)
+        print("✅ 모든 frame 처리 완료")
+    except Exception as e:
+        print(f"⛔ Error: {str(e)}")
 
+# === start-detect API ===
+@app.route('/start-detect', methods=['POST'])
+def start_detect():
+    global detect_thread, stop_flag
+
+    cafe_id = request.json.get("cafeId", "20")
+    print(f"🚀 Detection 시작: {cafe_id}")
+
+    if detect_thread and detect_thread.is_alive():
+        return jsonify({"message": "이미 detection 진행 중입니다"}), 400
+
+    stop_flag.clear()
+
+    detect_thread = threading.Thread(target=detect_loop, args=(cafe_id,), daemon=True)
+    detect_thread.start()
+
+    return jsonify({"message": "Detection started"}), 200
+
+# === stop-detect API ===
+@app.route('/stop-detect', methods=['POST'])
+def stop_detect():
+    global stop_flag
+
+    cafe_id = request.json.get("cafeId", "20")
+    print(f"🛑 Stop 요청 수신: {cafe_id}")
+
+    stop_flag.set()
+
+    return jsonify({"message": "Detection stopping..."}), 200
 
 if __name__ == '__main__':
-    worker_thread = threading.Thread(target=continuous_detection, daemon=True)
-    worker_thread.start()
     app.run(port=5001)
