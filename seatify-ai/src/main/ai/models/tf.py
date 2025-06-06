@@ -25,6 +25,7 @@ import numpy as np
 import tensorflow as tf
 import torch
 import torch.nn as nn
+import cv2
 from tensorflow import keras
 
 from models.common import C3, SPP, SPPF, Bottleneck, BottleneckCSP, Concat, Conv, DWConv, Focus, autopad

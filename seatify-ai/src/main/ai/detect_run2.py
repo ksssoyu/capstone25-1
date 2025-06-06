@@ -200,7 +200,8 @@ def run(
         hide_conf=False,  # hide confidences
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
-        store_id=None  # ✅ store_id 인자 추가
+        store_id=None,  # ✅ store_id 인자 추가
+        input_path=None
 ):
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
@@ -225,14 +226,19 @@ def run(
     # print(imgsz)
 
     # Dataloader
-    if webcam:
-        view_img = check_imshow()
-        cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
-        bs = len(dataset)  # batch_size
-    else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
-        bs = 1  # batch_size
+    if input_path:  # ✅ 새로 추가: 단일 이미지 입력 시
+        dataset = LoadImages(input_path, img_size=imgsz, stride=stride, auto=pt)
+        bs = 1
+    else:  # 기존처럼 source 사용
+        if webcam:
+            view_img = check_imshow()
+            cudnn.benchmark = True  # set True to speed up constant image size inference
+            dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
+            bs = len(dataset)
+        else:
+            dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
+            bs = 1
+    vid_path, vid_writer = [None] * bs, [None] * bs
     vid_path, vid_writer = [None] * bs, [None] * bs
 
     # Run inference
@@ -278,7 +284,7 @@ def run(
         mid_y.reverse()
 
         for i, det in enumerate(pred):  # per image
-
+            di = list() # store about label name
             seen += 1
             if webcam:  # batch_size >= 1
                 p, im0, frame = path[i], im0s[i].copy(), dataset.count
@@ -305,7 +311,6 @@ def run(
                     
                 # Write results, 좌표값과 신뢰도 출력!
                 cnt = 0
-                di = list() # store about label name 
                 for *xyxy, conf, cls in reversed(det):
                         
                     if save_txt:  # Write to file
@@ -322,7 +327,6 @@ def run(
                         label_c = None if hide_labels else (names[c] if hide_conf else f'{names[c]}')
 
                         cnt+=1
-                        print(label, label_c, conf.item())
                         # di.update({label_c : round(conf.item(), 10)})
                         di.append(label_c)
                         annotator.box_label(xyxy, label, color=colors(c, True))
@@ -340,7 +344,6 @@ def run(
             seat_num_cnt = []
 
             with open('backup/seatData.p', 'rb') as file:
-                print("pickle")
                 try:
                     while True:
                         item = pickle.load(file)
@@ -351,7 +354,6 @@ def run(
                     pass
 
             with open('backup/seat_Num.p', 'rb') as seat_num_file:
-                print("pickle seat Num")
                 try:
                     while True:
                         item = pickle.load(seat_num_file)
@@ -384,14 +386,11 @@ def run(
 
                     countnum =0
                     seat_status_list = []
-                    print("mid_x, mid_y, di" , mid_x, mid_y, di)
                     for px, py, dic in zip(mid_x, mid_y, di):
                         # ✅ 좌표 보정 적용
                         dst = convert_perspective(perspect_mat, px, py)
-                        print(f"[Debug] Raw Projection: {dst}")
                         px, py = dst[0], dst[1]
 
-                        print("px, py, dic", px, py, dic)
                         countnum+=1
     
                         #### draw and projection coordinate ############
@@ -400,7 +399,6 @@ def run(
                 
                         distance = []
                         for idx in range(len(seat_num_cnt)):
-                            print(seat_num_cnt)
                             distance.append((
                                 (np.power(seat_num_cnt[idx].xPos - int(dst[0]), 2) +
                                  np.power(seat_num_cnt[idx].yPos - int(dst[1]), 2)),
@@ -424,7 +422,6 @@ def run(
                         
                         #           xpos        ypos        box_width     box_height  table_shape  num  table_state 
                         if dic == "step_out":
-                            print("Step out")
                             ##################################################################################################
                             # send server format                                                                             #
                             ##################################################################################################
@@ -464,7 +461,6 @@ def run(
                             ##################################################################################################
                             # send server format
                             ##################################################################################################
-                            print("Empty")
                             # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, False)
                             
                             if state_of_table[6] == None: # 처음 시작할 때, None
@@ -483,8 +479,6 @@ def run(
                             if state_of_table[6] == None: # 처음 시작할 때, None
                                 # print(state_of_table[5])
                                 # print(state_of_table[5]-1)
-                                print(seat_num_cnt[int(state_of_table[5]-1)][7])
-                                print(seat_num_cnt[int(state_of_table[5]-1)][7]+1)
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4],
                                                 state_of_table[5], "empty_table", state_of_table[7]+1]]
 
@@ -533,9 +527,15 @@ def run(
                             "long_step_out": 3
                         }
                         statusList.append({
-                            "seatID": 2,
+                            "seatID": seat_id,
                             "state": state_map.get(state_str, 0)  # 기본값: empty
                         })
+
+                    # pickle로 상태 저장 (누적 상태 유지용)
+                    with open('backup/seat_Num.p', 'wb') as seat_num_file:
+                        for entry in seat_status_list:
+                            seat_obj = seatClass(entry[0], entry[1], entry[2], entry[3], entry[4], entry[5], entry[6], entry[7])
+                            pickle.dump(seat_obj, seat_num_file)
 
                     # 서버 전송
                     store_id_int = int(store_id) if isinstance(store_id, str) and store_id.isdigit() else 1
@@ -578,6 +578,8 @@ def parse_opt():
     parser.add_argument('--source', type=str, default= '../custom_dataset_plus_longtable/test/images', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--data', type=str, default= './data/custom_dataset_plus_longtable.yaml', help='(optional) dataset.yaml path')
     parser.add_argument('--store-id', type=str, required=True, help='Unique store identifier (e.g., store1)')
+    parser.add_argument('--input-path', type=str, help='single image path for frame-based detection')
+
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')

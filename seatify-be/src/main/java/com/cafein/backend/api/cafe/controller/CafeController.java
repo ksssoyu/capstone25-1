@@ -86,7 +86,6 @@ public class CafeController {
 		final Long memberId = memberInfoDTO.getMemberId();
 		reviewService.validateReviewExists(cafeId);
 		viewedCafeService.validateCongestionRequest(memberId, cafeId);
-		memberService.subtractCoffeeBean(memberId);
 		viewedCafeService.addViewedCafe(memberService.findMemberByMemberId(memberId), cafeId);
 		return ResponseEntity.ok(cafeService.findCafeInfoById(memberId, cafeId));
 	}

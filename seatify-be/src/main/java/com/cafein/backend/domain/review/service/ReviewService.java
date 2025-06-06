@@ -33,7 +33,6 @@ public class ReviewService {
 	public ReviewResponse createReview(final ReviewRequest reviewRequestDTO, final Long cafeId, final Long memberId) {
 		Member member = memberService.findMemberByMemberId(memberId);
 		Review review = reviewRepository.save(createReviewFromDTO(reviewRequestDTO, cafeId, member));
-		member.addCoffeeBean(member.getCoffeeBean());
 		Cafe cafe = cafeService.findCafeByCafeId(cafeId);
 
 		// Plug와 Clean이 true일 경우 카운트 증가

@@ -9,5 +9,6 @@ export interface LoginResponse {
     accessTokenExpireTime: string;
     refreshTokenExpireTime: string;
     refreshToken: string;
+    managedCafeId: string;
   };
 }

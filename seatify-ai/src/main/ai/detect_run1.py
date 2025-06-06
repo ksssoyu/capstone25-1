@@ -153,7 +153,8 @@ def run(
         hide_conf=False,  # hide confidences
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
-        store_id=None  # ✅ store_id 인자 추가
+        store_id=None,  # ✅ store_id 인자 추가
+        input_path=None
 ):
     cafe_id = store_id
 
@@ -180,14 +181,18 @@ def run(
     # print(imgsz)
 
     # Dataloader
-    if webcam:
-        view_img = check_imshow()
-        cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
-        bs = len(dataset)  # batch_size
-    else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
-        bs = 1  # batch_size
+    if input_path:  # ✅ 새로 추가: 단일 이미지 입력 시
+        dataset = LoadImages(input_path, img_size=imgsz, stride=stride, auto=pt)
+        bs = 1
+    else:  # 기존처럼 source 사용
+        if webcam:
+            view_img = check_imshow()
+            cudnn.benchmark = True  # set True to speed up constant image size inference
+            dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
+            bs = len(dataset)
+        else:
+            dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
+            bs = 1
     vid_path, vid_writer = [None] * bs, [None] * bs
 
     # Run inference
@@ -238,6 +243,7 @@ def run(
         
         for i, det in enumerate(pred):  # per image
 
+            di = list()
             seen += 1
             if webcam:  # batch_size >= 1
                 p, im0, frame = path[i], im0s[i].copy(), dataset.count
@@ -265,7 +271,6 @@ def run(
             
                 # Write results, 좌표값과 신뢰도 출력!
                 cnt = 0
-                di = list() # store about label name 
                 for *xyxy, conf, cls in reversed(det):
                         
                     if save_txt:  # Write to file
@@ -281,15 +286,15 @@ def run(
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]}{cnt}{"_"}{conf:.2f}')
                         label_c = None if hide_labels else (names[c] if hide_conf else f'{names[c]}')
                         cnt+=1
-                        # print(label, label_c, conf.item()) # table_num , table_shape, confidence
+                        print(label, label_c, conf.item()) # table_num , table_shape, confidence
                         di.append(label_c)
                         #print(di, label_c)
                         annotator.box_label(xyxy, label, color=colors(c, True))
                         if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
             else:
-                print(f"[{p.name}] 감지된 객체 없음. 건너뜀.")
-                continue  # 객체가 없는 경우 이후 처리 건너뜀
+                print(f"[{p.name}] 감지된 객체 없음 → 프로세스 종료")
+                sys.exit(1)
             
             # Stream results
             #print(di) # print about table_shape , di == table_shape
@@ -379,21 +384,22 @@ def run(
                             "width": seat_w,
                             "height": seat_h,
                             "shape": seat_shape,
-                            "seatID": 2,
+                            "seatID": seat_id,
                             "additional": None,
                             "state": 0
                         })
 
                         cnt += 1
 
-                    print(f"📌 det len: {len(det)}")
-                    print(f"📌 mid_x: {mid_x}")
-                    print(f"📌 mid_y: {mid_y}")
-                    print(f"📌 di (label_c list): {di}")
-                    print(f"📌 posDict keys: {list(posDict.keys())}")
-                    print(f"📌 seatList: {seatList}")
-
                     send_seat_layout_if_changed(cafe_id, seatList)
+
+                    # seat layout 보내고 난 뒤에 seatList 길이 확인
+                    if len(seatList) > 0:
+                        send_seat_layout_if_changed(cafe_id, seatList)
+                        sys.exit(0)  # 감지 성공
+                    else:
+                        print("[detect_run1] 테이블 감지 실패 → seat layout 전송 스킵")
+                        sys.exit(1)  # 감지 실패
 
                     cv2.imwrite(save_path + "dst.jpg", ds)
                     cv2.imwrite(save_path, im0)
@@ -436,6 +442,7 @@ def parse_opt():
     parser.add_argument('--source', type=str, default= '../custom_dataset_plus_longtable/test/images', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--data', type=str, default= 'yolov5/data/custom_dataset_plus_longtable.yaml', help='(optional) dataset.yaml path')
     parser.add_argument('--store-id', type=str, required=True, help='Unique store identifier (e.g., store1)')
+    parser.add_argument('--input-path', type=str, help='single image path for frame-based detection')
     ############################################################################################################################################
 
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
@@ -471,6 +478,7 @@ def parse_opt():
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
+
     opt, _ = parser.parse_known_args()
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
     print_args(name="detect_run1.py", opt=opt)
@@ -490,7 +498,6 @@ def Ex1(store_id):
 
     # 검증 로직 추가
 def verify_pickle(filepath):
-    print(f"[Verify] Checking pickle file: {filepath}")
     try:
         with open(filepath, 'rb') as f:
             entries = []
@@ -500,10 +507,6 @@ def verify_pickle(filepath):
                     entries.append(entry)
                 except EOFError:
                     break
-        if entries:
-            print(f"[Verify] {len(entries)} entries found in {filepath}")
-        else:
-            print(f"[Verify] No entries found in {filepath}")
     except FileNotFoundError:
         print(f"[Verify] {filepath} not found")
 

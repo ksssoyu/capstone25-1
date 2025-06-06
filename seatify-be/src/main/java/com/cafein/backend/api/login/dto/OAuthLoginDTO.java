@@ -18,7 +18,8 @@ public class OAuthLoginDTO {
 		private String memberType;
 	}
 
-	@Getter @Builder
+	@Getter
+	@Builder
 	public static class OAuthLoginResponse {
 
 		@Schema(description = "Grant Type", example = "Bearer", required = true)
@@ -38,14 +39,19 @@ public class OAuthLoginDTO {
 		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Seoul")
 		private Date refreshTokenExpireTime;
 
-		public static OAuthLoginResponse of(JwtTokenDTO jwtTokenDTO) {
+		@Schema(description = "매니저가 관리하는 카페 ID", example = "1", required = false)
+		private Long managedCafeId;   // ✅ 새로 추가
+
+		public static OAuthLoginResponse of(JwtTokenDTO jwtTokenDTO, Long managedCafeId) {
 			return OAuthLoginResponse.builder()
-				.grantType(jwtTokenDTO.getGrantType())
-				.accessToken(jwtTokenDTO.getAccessToken())
-				.accessTokenExpireTime(jwtTokenDTO.getAccessTokenExpireTime())
-				.refreshToken(jwtTokenDTO.getRefreshToken())
-				.refreshTokenExpireTime(jwtTokenDTO.getRefreshTokenExpireTime())
-				.build();
+					.grantType(jwtTokenDTO.getGrantType())
+					.accessToken(jwtTokenDTO.getAccessToken())
+					.accessTokenExpireTime(jwtTokenDTO.getAccessTokenExpireTime())
+					.refreshToken(jwtTokenDTO.getRefreshToken())
+					.refreshTokenExpireTime(jwtTokenDTO.getRefreshTokenExpireTime())
+					.managedCafeId(managedCafeId)
+					.build();
 		}
 	}
+
 }

@@ -17,6 +17,7 @@ import javax.persistence.Index;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
+import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.DynamicInsert;
 
@@ -28,13 +29,9 @@ import com.cafein.backend.domain.review.entity.Review;
 import com.cafein.backend.global.jwt.dto.JwtTokenDTO;
 import com.cafein.backend.global.util.DateTimeUtils;
 
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 @Entity
 @Getter
+@Setter
 @DynamicInsert
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(indexes = {
@@ -75,6 +72,10 @@ public class Member extends BaseTimeEntity {
 
 	private LocalDateTime tokenExpirationTime;
 
+	// ✅ 새로 추가된 필드 (manager라면 본인이 관리하는 카페 ID)
+	@Column(name = "managed_cafe_id")
+	private Long managedCafeId;
+
 	@OneToMany(mappedBy = "member", cascade = ALL)
 	private List<Review> reviews = new ArrayList<>();
 
@@ -83,8 +84,9 @@ public class Member extends BaseTimeEntity {
 
 	@Builder
 	public Member(final Long memberId, final MemberType memberType, final String email,
-		final String password, final String name, final String profile, final Integer coffeeBean,
-		final Role role, final String refreshToken, final LocalDateTime tokenExpirationTime) {
+				  final String password, final String name, final String profile, final Integer coffeeBean,
+				  final Role role, final String refreshToken, final LocalDateTime tokenExpirationTime,
+				  final Long managedCafeId) {
 		this.memberId = memberId;
 		this.memberType = memberType;
 		this.email = email;
@@ -95,6 +97,7 @@ public class Member extends BaseTimeEntity {
 		this.role = role;
 		this.refreshToken = refreshToken;
 		this.tokenExpirationTime = tokenExpirationTime;
+		this.managedCafeId = managedCafeId;
 	}
 
 	public void updateRefreshToken(final JwtTokenDTO jwtTokenDto) {
@@ -102,19 +105,8 @@ public class Member extends BaseTimeEntity {
 		this.tokenExpirationTime = DateTimeUtils.convertDateToLocalDateTime(jwtTokenDto.getRefreshTokenExpireTime());
 	}
 
-	public void updateName(final String name) {
-		this.name = name;
-	}
-
 	public void expireRefreshToken(final LocalDateTime now) {
 		this.tokenExpirationTime = now;
 	}
 
-	public void subtractCoffeeBean(Integer currentCoffeeBean) {
-		this.coffeeBean = currentCoffeeBean - 2;
-	}
-
-	public void addCoffeeBean(Integer currentCoffeeBean) {
-		this.coffeeBean = currentCoffeeBean + 2;
-	}
 }

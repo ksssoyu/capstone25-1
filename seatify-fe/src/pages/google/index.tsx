@@ -1,5 +1,3 @@
- 
-
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
@@ -25,9 +23,13 @@ function GooglePage() {
       // 구글 서버로부터 받은 access token으로 jwt 토큰 access token, refresh token 받기
       getLoginToken(token, 'GOOGLE').then((res: LoginResponse) => {
         const accessToken = res.data?.accessToken || '';
-        console.log('accessToken from login API:', res.data?.accessToken);
+        const managedCafeId = res.data?.managedCafeId || '';
 
-        dispatch(setToken({ access_token: accessToken }));
+        console.log('accessToken from login API:', res.data?.accessToken);
+        console.log('managedCafeId from login API:', res.data?.managedCafeId);
+
+        // ✅ managedCafeId까지 Redux에 저장
+        dispatch(setToken({ access_token: accessToken, managed_cafe_id: managedCafeId }));
 
         // refresh 토큰값과 토큰의 만료시간 쿠키에 저장
         const expires = new Date(res.data?.refreshTokenExpireTime || '');

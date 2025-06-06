@@ -21,6 +21,7 @@ public enum ErrorCode {
 	ALREADY_REGISTERED_MEMBER(HttpStatus.BAD_REQUEST, "M-002", "이미 가입된 회원입니다."),
 	MEMBER_NOT_EXIST(HttpStatus.BAD_REQUEST, "M-003", "해당 회원은 존재하지 않습니다."),
 	NOT_ENOUGH_COFFEE_BEAN(HttpStatus.BAD_REQUEST, "M-004", "커피 콩이 부족합니다."),
+	NOT_MANAGER(HttpStatus.BAD_REQUEST, "M-005", "권한이 없습니다. (MANAGER만 사용 가능)"),
 
 	// 카페
 	CAFE_NOT_EXIST(HttpStatus.BAD_REQUEST, "C-001", "해당 카페는 존재하지 않습니다."),

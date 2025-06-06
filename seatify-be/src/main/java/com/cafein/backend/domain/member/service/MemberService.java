@@ -15,6 +15,7 @@ import com.cafein.backend.global.error.exception.BusinessException;
 import com.cafein.backend.global.error.exception.EntityNotFoundException;
 
 import lombok.RequiredArgsConstructor;
+import com.cafein.backend.domain.member.constant.Role;
 
 @Service
 @Transactional
@@ -62,19 +63,13 @@ public class MemberService {
 				.orElseThrow(() -> new EntityNotFoundException(ErrorCode.MEMBER_NOT_EXIST));
 	}
 
-	public void subtractCoffeeBean(final Long memberId) {
-		Member member = memberRepository.findById(memberId)
-				.orElseThrow(() -> new EntityNotFoundException(ErrorCode.MEMBER_NOT_EXIST));
-		if (member.getCoffeeBean() < 2) {
-			throw new BusinessException(ErrorCode.NOT_ENOUGH_COFFEE_BEAN);
-		}
-		member.subtractCoffeeBean(member.getCoffeeBean());
-	}
 
 	@Transactional
-	public void updateMemberName(Long memberId, String name) {
+	public void updateManagedCafe(Long memberId, Long managedCafeId) {
 		Member member = memberRepository.findById(memberId)
 				.orElseThrow(() -> new EntityNotFoundException(ErrorCode.MEMBER_NOT_EXIST));
-		member.updateName(name);
+		member.setManagedCafeId(managedCafeId);
 	}
+
+
 }

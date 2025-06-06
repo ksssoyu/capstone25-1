@@ -34,22 +34,21 @@ public class OAuthLoginService {
 		log.info("userInfo : {}", userInfo);
 
 		JwtTokenDTO jwtTokenDTO;
+		Member oauthMember;
+
 		Optional<Member> optionalMember = memberService.findMemberByEmailAndMemberType(userInfo.getEmail(), userInfo.getMemberType());
 		if (optionalMember.isEmpty()) {		//신규 회원가입
-			Member oauthMember = userInfo.toMemberEntity(memberType, Role.USER);
+			oauthMember = userInfo.toMemberEntity(memberType, Role.USER);
 			oauthMember = memberService.registerMember(oauthMember);
-
-			//토큰 생성
-			jwtTokenDTO = tokenManager.createJwtTokenDto(oauthMember.getMemberId(), oauthMember.getRole());
-			oauthMember.updateRefreshToken(jwtTokenDTO);
 		} else {	//기존 회원
-			Member oauthMember = optionalMember.get();
-
-			//토큰 생성
-			jwtTokenDTO = tokenManager.createJwtTokenDto(oauthMember.getMemberId(), oauthMember.getRole());
-			oauthMember.updateRefreshToken(jwtTokenDTO);
+			oauthMember = optionalMember.get();
 		}
 
-		return OAuthLoginDTO.OAuthLoginResponse.of(jwtTokenDTO);
+		// 토큰 생성
+		jwtTokenDTO = tokenManager.createJwtTokenDto(oauthMember.getMemberId(), oauthMember.getRole());
+		oauthMember.updateRefreshToken(jwtTokenDTO);
+
+		// ⭐ 여기서 managedCafeId 포함해서 반환
+		return OAuthLoginDTO.OAuthLoginResponse.of(jwtTokenDTO, oauthMember.getManagedCafeId());
 	}
 }

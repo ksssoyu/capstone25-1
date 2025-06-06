@@ -3,11 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { setCafeId } from '~/store/reducers/cafeIdSlice';
 import { RootState } from '~/store';
-import {
-  setInitialized,
-  selectIsMapInitialized,
-} from '~/store/reducers/mapSlice';
-
+import { setInitialized, selectIsMapInitialized } from '~/store/reducers/mapSlice';
 import queryClient from '~/helpers/queryClient';
 import { setNavigationContent } from '~/store/reducers/navigateSlice';
 import { fetchSeats } from '~/pages/api/seat/getSeats';
@@ -16,9 +12,7 @@ import { encodeSVG } from './encodeSVG';
 
 const GoogleMapComponent = () => {
   const dispatch = useDispatch();
-  const accessToken = useSelector(
-    (state: RootState) => state.auth.auth.access_token
-  );
+  const accessToken = useSelector((state: RootState) => state.auth.auth.access_token);
   const isMapInitialized = useSelector(selectIsMapInitialized);
 
   const currentViewingCafeRef = useRef<string | null>(null);
@@ -58,7 +52,6 @@ const GoogleMapComponent = () => {
     };
     window.addEventListener('unload', unload);
 
-    // ✅ 이 부분은 return보다 위에 있어야 정상 동작함!
     const mapInitFlag = localStorage.getItem('map_initialized') === 'true';
     if (!accessToken || isMapInitialized || mapInitFlag) return;
 
@@ -66,9 +59,7 @@ const GoogleMapComponent = () => {
       try {
         await fetch('http://localhost:5001/set-token', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: accessToken }),
         });
         console.log('✅ Flask 서버에 accessToken 전달 완료');
@@ -78,22 +69,19 @@ const GoogleMapComponent = () => {
     };
 
     const loadGoogleMapScript = () =>
-      new Promise<void>((resolve, reject) => {
-        if (window.google && window.google.maps) return resolve();
-        const existingScript = document.querySelector(
-          `script[src^="https://maps.googleapis.com/maps/api/js"]`
-        );
-        if (existingScript)
-          return existingScript.addEventListener('load', () => resolve());
+        new Promise<void>((resolve, reject) => {
+          if (window.google && window.google.maps) return resolve();
+          const existingScript = document.querySelector(`script[src^="https://maps.googleapis.com/maps/api/js"]`);
+          if (existingScript) return existingScript.addEventListener('load', () => resolve());
 
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Google Maps failed to load.'));
-        document.body.appendChild(script);
-      });
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`;
+          script.async = true;
+          script.defer = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Google Maps failed to load.'));
+          document.body.appendChild(script);
+        });
 
     const fetchNearbyCafes = async (lat: number, lng: number) => {
       const res = await fetch(`/api/cafe/cafes?lat=${lat}&lng=${lng}`);
@@ -117,10 +105,7 @@ const GoogleMapComponent = () => {
 
     const fetchPlaceDetails = async (placeId: string) => {
       // @ts-ignore
-      const { Place } = (await google.maps.importLibrary(
-        'places'
-      )) as google.maps.PlacesLibrary;
-
+      const { Place } = (await google.maps.importLibrary('places')) as google.maps.PlacesLibrary;
       const place = new Place({ id: placeId, requestedLanguage: 'ko' });
       await place.fetchFields({
         fields: [
@@ -155,13 +140,7 @@ const GoogleMapComponent = () => {
         center: { lat: 37.504992, lng: 126.953561 },
         zoom: 18,
         disableDefaultUI: true,
-        styles: [
-          {
-            featureType: 'poi',
-            elementType: 'labels',
-            stylers: [{ visibility: 'off' }],
-          },
-        ],
+        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }],
       });
       map.setOptions({ zoomControl: true });
 
@@ -170,21 +149,11 @@ const GoogleMapComponent = () => {
       const secondSearch = { lat: 37.507416, lng: 126.960169 };
 
       if (!hasSaved) {
-        const firstNearby = await fetchNearbyCafes(
-          firstSearch.lat,
-          firstSearch.lng
-        );
-        const secondNearby = await fetchNearbyCafes(
-          secondSearch.lat,
-          secondSearch.lng
-        );
+        const firstNearby = await fetchNearbyCafes(firstSearch.lat, firstSearch.lng);
+        const secondNearby = await fetchNearbyCafes(secondSearch.lat, secondSearch.lng);
         const detailedList = [
-          ...(await Promise.all(
-            firstNearby.map((p: any) => fetchPlaceDetails(p.place_id))
-          )),
-          ...(await Promise.all(
-            secondNearby.map((p: any) => fetchPlaceDetails(p.place_id))
-          )),
+          ...(await Promise.all(firstNearby.map((p: any) => fetchPlaceDetails(p.place_id)))),
+          ...(await Promise.all(secondNearby.map((p: any) => fetchPlaceDetails(p.place_id)))),
         ];
 
         try {
@@ -198,54 +167,41 @@ const GoogleMapComponent = () => {
 
       const cafes = await fetchCafesFromDB(accessToken);
       for (const cafe of cafes) {
-        const position = {
-          lat: parseFloat(cafe.latitude),
-          lng: parseFloat(cafe.longitude),
-        };
+        const position = { lat: parseFloat(cafe.latitude), lng: parseFloat(cafe.longitude) };
         const seats = await fetchSeats(cafe.cafeId, accessToken);
         const occupied = seats.filter((s) => s.occupied).length;
         const ratio = seats.length > 0 ? occupied / seats.length : 0;
         const seatCongestion = ratio <= 0.3 ? '1' : ratio <= 0.7 ? '2' : '3';
-
         const svg = tagSvgRaw(cafe.name, seatCongestion);
+
         const marker = new window.google.maps.Marker({
           position,
           map,
-          icon: {
-            url: encodeSVG(svg),
-            scaledSize: new window.google.maps.Size(181, 65),
-          },
+          icon: { url: encodeSVG(svg), scaledSize: new window.google.maps.Size(181, 65) },
         });
+
+        markersRef.current[cafe.cafeId] = marker;
 
         marker.addListener('click', async () => {
           const prevId = currentViewingCafeRef.current;
           const newId = cafe.cafeId;
 
           if (prevId && prevId !== newId) {
-            await fetch(
-              `http://localhost:8080/api/cafe-view/end?cafe_id=${prevId}`,
-              {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${accessToken}` },
-              }
-            );
-          }
-
-          await fetch(
-            `http://localhost:8080/api/cafe-view/start?cafe_id=${newId}`,
-            {
+            await fetch(`http://localhost:8080/api/cafe-view/end?cafe_id=${prevId}`, {
               method: 'POST',
               headers: { Authorization: `Bearer ${accessToken}` },
-            }
-          );
+            });
+          }
+
+          await fetch(`http://localhost:8080/api/cafe-view/start?cafe_id=${newId}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
 
           try {
-            const res = await fetch(
-              `http://localhost:8080/api/cafe-view/count?cafe_id=${newId}`,
-              {
-                headers: { Authorization: `Bearer ${accessToken}` },
-              }
-            );
+            const res = await fetch(`http://localhost:8080/api/cafe-view/count?cafe_id=${newId}`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
             const count = await res.json();
             setViewerCount(count);
           } catch {
@@ -259,52 +215,25 @@ const GoogleMapComponent = () => {
         });
       }
 
-      const requestSeatDetection = async () => {
-        for (const cafe of cafes) {
-          if (cafe.cafeId === "1" || cafe.cafeId === "2") {
-            try {
-              await fetch(
-                  `http://localhost:5001/run-detect?cafe_id=${cafe.cafeId}`,
-                  {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                  }
-              );
-              console.log(`✅ 좌석 감지 요청 완료: ${cafe.cafeId}`);
-            } catch (err) {
-              console.error(`⛔ 감지 요청 실패: ${cafe.cafeId}`, err);
-            }
-          }
-        }
-
-        // 감지 요청 후 마커 갱신
-        try {
-          await refreshCafeMarkers();
-          console.log('🎯 마커 혼잡도 갱신 완료');
-        } catch (err) {
-          console.error('⛔ 마커 갱신 실패:', err);
-        }
-      };
-
       sendTokenToFlask();
-
       console.log('🎯 불러온 카페 목록:', cafes);
-
-      if (cafes.length > 0 && accessToken) {
-        requestSeatDetection();
-      }
-
       dispatch(setInitialized());
       localStorage.setItem('map_initialized', 'true');
-      return () => {
-        window.removeEventListener('unload', unload);
-      };
+      return () => window.removeEventListener('unload', unload);
     };
 
-    loadGoogleMapScript()
-      .then(() => initMap())
-      .catch((err) => console.error('Google Maps API load error:', err));
+    loadGoogleMapScript().then(() => initMap()).catch((err) => console.error('Google Maps API load error:', err));
   }, [dispatch, accessToken, isMapInitialized]);
+
+  // ✅ 별도 주기적 마커 갱신 useEffect
+  useEffect(() => {
+    if (!accessToken) return;
+    const interval = setInterval(() => {
+      refreshCafeMarkers();
+    }, 60 * 1000); // 60초마다 혼잡도 갱신
+
+    return () => clearInterval(interval);
+  }, [accessToken]);
 
   return <div id="map" style={{ width: '100%', height: '100vh' }} />;
 };

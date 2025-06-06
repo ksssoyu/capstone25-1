@@ -1,5 +1,3 @@
- 
-
 import axios from 'axios';
 import { LoginResponse } from '~/types/auth';
 
@@ -25,8 +23,9 @@ const getLoginToken = async (token: string, type: string) => {
     console.log('✅ 로그인 응답 전체:', res);
     console.log('✅ accessToken:', res.data?.accessToken);
     console.log('✅ refreshToken:', res.data?.refreshToken);
+    console.log('✅ managedCafeId:', res.data?.managedCafeId);  // ✅ 추가 확인
 
-    return { ...res, success: true };
+    return { data: res.data, success: true };  // ✅ 이렇게 리턴
   } catch (error) {
     console.error('❌ 로그인 에러:', error);
     return { success: false };

@@ -30,15 +30,19 @@ public class MemberInfoResponseDTO {
 	@Schema(description = "회원이 조회한 카페 Id", example = "[1, 2, 3]", required = true)
 	private List<Long> viewedCafeIds;
 
+	@Schema(description = "사장님이 관리하는 카페 Id", example = "2", required = false)
+	private Long managedCafeId;
+
 	public static MemberInfoResponseDTO of(final Member member, final List<Long> viewedCafeIds) {
 		return MemberInfoResponseDTO.builder()
-			.memberId(member.getMemberId())
-			.memberName(member.getName())
-			.email(member.getEmail())
-			.profile(member.getProfile())
-			.role(member.getRole())
-			.viewedCafeIds(viewedCafeIds)
-			.build();
+				.memberId(member.getMemberId())
+				.memberName(member.getName())
+				.email(member.getEmail())
+				.profile(member.getProfile())
+				.role(member.getRole())
+				.viewedCafeIds(viewedCafeIds)
+				.managedCafeId(member.getManagedCafeId())  // ✅ 추가
+				.build();
 	}
 
 	@Override

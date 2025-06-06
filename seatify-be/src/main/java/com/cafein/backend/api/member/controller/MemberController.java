@@ -2,6 +2,7 @@ package com.cafein.backend.api.member.controller;
 
 import javax.validation.Valid;
 
+import com.cafein.backend.api.member.dto.ManagedCafeUpdateRequestDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -65,29 +66,18 @@ public class MemberController {
 	}
 
 	@Tag(name = "member")
-	@Operation(summary = "회원 이름(닉네임) 수정 API", description = "회원 이름(닉네임) 수정 API")
+	@Operation(summary = "회원이 관리할 카페 등록 API", description = "사장님이 관리할 카페 선택 시 호출됩니다.")
 	@ApiResponses({
-		@ApiResponse(responseCode = "A-001", description = "토큰이 만료되었습니다."),
-		@ApiResponse(responseCode = "A-002", description = "해당 토큰은 유효한 토큰이 아닙니다."),
-		@ApiResponse(responseCode = "M-003", description = "해당 회원은 존재하지 않습니다.")
+			@ApiResponse(responseCode = "A-001", description = "토큰이 만료되었습니다."),
+			@ApiResponse(responseCode = "A-002", description = "해당 토큰은 유효한 토큰이 아닙니다."),
+			@ApiResponse(responseCode = "M-003", description = "해당 회원은 존재하지 않습니다.")
 	})
-	@PatchMapping("/name")
-	public ResponseEntity<String> updateMemberName(@ApiIgnore @MemberInfo MemberInfoDTO memberInfoDTO,
-												   @Valid @RequestBody NameChangeRequestDTO nameChangeRequestDTO) {
-		memberService.updateMemberName(memberInfoDTO.getMemberId(), nameChangeRequestDTO.getName());
-		return ResponseEntity.ok("Name change successful!");
+
+	@PatchMapping("/managed-cafe")
+	public ResponseEntity<String> updateManagedCafe(@ApiIgnore @MemberInfo MemberInfoDTO memberInfoDTO,
+													@Valid @RequestBody ManagedCafeUpdateRequestDTO requestDTO) {
+		memberService.updateManagedCafe(memberInfoDTO.getMemberId(), requestDTO.getManagedCafeId());
+		return ResponseEntity.ok("Managed cafe updated successfully");
 	}
 
-	@Tag(name = "member")
-	@Operation(summary = "회원 커피콩 조회 API", description = "회원 커피콩 조회 API")
-	@ApiResponses({
-		@ApiResponse(responseCode = "A-001", description = "토큰이 만료되었습니다."),
-		@ApiResponse(responseCode = "A-002", description = "해당 토큰은 유효한 토큰이 아닙니다."),
-		@ApiResponse(responseCode = "M-003", description = "해당 회원은 존재하지 않습니다.")
-	})
-	@GetMapping("/coffeebean")
-	public ResponseEntity<Integer> getMemberCoffeeBean(@ApiIgnore @MemberInfo MemberInfoDTO memberInfoDTO) {
-		final Member member = memberService.findMemberByMemberId(memberInfoDTO.getMemberId());
-		return ResponseEntity.ok(member.getCoffeeBean());
-	}
 }
