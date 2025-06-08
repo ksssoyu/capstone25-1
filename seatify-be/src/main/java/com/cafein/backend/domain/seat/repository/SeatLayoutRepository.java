@@ -12,4 +12,6 @@ public interface SeatLayoutRepository extends JpaRepository<SeatLayout, Long> {
 
     // 필요시 seatNumber로도 조회 가능
     SeatLayout findByCafe_CafeIdAndSeatNumber(Long cafeId, int seatNumber);
+
+    void deleteByCafe_CafeId(Long cafeId);
 }

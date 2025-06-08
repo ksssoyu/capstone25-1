@@ -77,28 +77,55 @@ def load_calibration(store_id):
     perspect_mat = cv2.getPerspectiveTransform(pts1, pts2)
     return perspect_mat
 
-def find_closest_seat(x, y, seat_list):
+def find_closest_seat(x, y, seat_list, used_ids=None, min_dist_threshold=100**2):
     min_dist = float('inf')
     closest_seat = None
+
     for seat in seat_list:
+        if used_ids and seat.seatNum in used_ids:
+            continue
+
         dist = (seat.xPos - x) ** 2 + (seat.yPos - y) ** 2
         if dist < min_dist:
             min_dist = dist
             closest_seat = seat
-    return closest_seat
 
-def map_detections_to_seats(detections, perspective_matrix, seat_list):
+    if closest_seat and min_dist < min_dist_threshold:
+        return closest_seat
+    else:
+        return None  # 너무 멀어서 유효하지 않다고 판단
+
+def map_detections_to_seats(detections, perspective_matrix, seat_list, min_dist_threshold=100**2):
     """
     감지된 객체를 실제 좌석에 매핑하여 seatID 포함한 상태 리스트 반환
     :param detections: [(x, y, class_label)]
     :param perspective_matrix: OpenCV perspective 변환 행렬
     :param seat_list: 사전에 저장된 좌석 객체 리스트
+    :param min_dist_threshold: 좌석과 감지 좌표 간 최대 거리 제곱값
     :return: [{"seatID": int, "state": int}, ...]
     """
     mapped = []
+    used_seat_ids = set()  # 중복 매핑 방지용
+
     for x, y, label in detections:
         px, py = convert_perspective(perspective_matrix, x, y)
-        closest_seat = find_closest_seat(px, py, seat_list)
+
+        # 가장 가까운 좌석 찾되, 이미 매핑된 좌석 제외
+        closest_seat, dist = None, float('inf')
+        for seat in seat_list:
+            if seat.seatNum in used_seat_ids:
+                continue
+            d = (seat.xPos - px) ** 2 + (seat.yPos - py) ** 2
+            if d < dist:
+                dist = d
+                closest_seat = seat
+
+        # 너무 멀면 무시
+        if dist >= min_dist_threshold or closest_seat is None:
+            print(f"[WARN] ({px:.1f}, {py:.1f})는 어떤 좌석과도 충분히 가깝지 않음 → 매핑 생략")
+            continue
+
+        used_seat_ids.add(closest_seat.seatNum)
 
         state_map = {
             "empty_table": 0,
@@ -106,10 +133,12 @@ def map_detections_to_seats(detections, perspective_matrix, seat_list):
             "step_out": 2,
             "long_step_out": 3
         }
+
         mapped.append({
             "seatID": closest_seat.seatNum,
-            "state": state_map.get(label, 0)  # 기본값은 empty_table
+            "state": state_map.get(label, 0)  # 기본값 empty_table
         })
+
     return mapped
 
 
@@ -139,7 +168,7 @@ class seatClass:
     # seatShape mean -> table or longtable
     # seatNum is Number of Seat
     # seatInfo is state of table
-    
+
     # count
     def __init__(self, xPos, yPos, width, height, seatShape, seatNum, seatInfo, seatCount):
         self.xPos = xPos
@@ -160,18 +189,18 @@ class seatClass:
         print(f'seatNum: {self.seatNum}')
         print(f'seatInfo: {self.seatInfo}')
         print(f'seatCount: {self.seatCount}')
-        
+
     def count(self, seatCount):
         # if self
         pass
-    
+
     def __getitem__(self, idx):
         return [
             self.xPos, self.yPos, self.width, self.height,
             self.seatShape, self.seatNum, self.seatInfo, self.seatCount
         ][idx]
 
-        
+
 @torch.no_grad()
 def run(
         weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
@@ -221,8 +250,8 @@ def run(
     stride, names, pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)  # check image size -> 480 x 640
     # 이미지 보간법. 2560 x 1920 사이즈일 경우 ratioX = 0.25, 0.33333
-    
-    
+
+
     # print(imgsz)
 
     # Dataloader
@@ -268,7 +297,7 @@ def run(
         # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
 
         # Process predictions
-        
+
         perspec = pred[0]
         # print(perspec) # show about tensor
         mid_x = []; mid_y = []
@@ -277,7 +306,7 @@ def run(
             for val in i:
                 value = round(val.item(), 2)
                 li.append(value)
-            
+
             mid_x.append((li[0]+li[2])/2)
             mid_y.append((li[1]+li[3])/2)
         mid_x.reverse()
@@ -308,11 +337,11 @@ def run(
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string s-> class 이름 저장
                     # image 1/1 C:\Users\hallym\Desktop\capstone\yolov5\empty_or_using_dataset-\test\images\train_161_01.jpg: 480x640 7 empty_tables, 1 using_table,
-                    
+
                 # Write results, 좌표값과 신뢰도 출력!
                 cnt = 0
                 for *xyxy, conf, cls in reversed(det):
-                        
+
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
@@ -321,7 +350,7 @@ def run(
 
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class 0, 1, 2 .. 과 같은 형태.
-                        
+
                         # print_about label + number + confidence
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]}{cnt}{"_"}{conf:.2f}')
                         label_c = None if hide_labels else (names[c] if hide_conf else f'{names[c]}')
@@ -339,7 +368,7 @@ def run(
             if view_img:
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
-                
+
             string = []
             seat_num_cnt = []
 
@@ -363,8 +392,13 @@ def run(
                             seat_num_cnt.append(seat)
                         elif isinstance(item, seatClass):
                             seat_num_cnt.append(item)
-                except:
+                except EOFError:
                     pass
+
+            # ✅ 디버깅: 읽어온 seatNum 내용 출력
+            print(f"[디버깅] seat_Num.p 로드 완료 → 총 {len(seat_num_cnt)}개 좌석")
+            for idx, seat in enumerate(seat_num_cnt):
+                print(f"  [{idx}] seatID: {seat.seatNum}, (x: {seat.xPos}, y: {seat.yPos}), shape: {seat.seatShape}")
 
             # Save results (image with detections)
             if save_img:
@@ -381,8 +415,8 @@ def run(
 
                     ds = np.zeros((480, 640, 3), dtype=np.uint8)
 
-                    posDict = dict()   
-                    
+                    posDict = dict()
+
 
                     countnum =0
                     seat_status_list = []
@@ -392,26 +426,30 @@ def run(
                         px, py = dst[0], dst[1]
 
                         countnum+=1
-    
+
                         #### draw and projection coordinate ############
                         # perspective coordinate
                         dst = (dst[0] + OFFSET_X, dst[1] + OFFSET_Y - 80)
-                
+
                         distance = []
                         for idx in range(len(seat_num_cnt)):
-                            distance.append((
-                                (np.power(seat_num_cnt[idx].xPos - int(dst[0]), 2) +
-                                 np.power(seat_num_cnt[idx].yPos - int(dst[1]), 2)),
-                                seat_num_cnt[idx]
-                            ))
-                        # 오류 방지용 수정
-                        state_of_table = min(distance, key=lambda x: x[0])[1]                       
-                        
+                            dist_val = (np.power(seat_num_cnt[idx].xPos - int(dst[0]), 2) +
+                                        np.power(seat_num_cnt[idx].yPos - int(dst[1]), 2))
+                            distance.append((dist_val, seat_num_cnt[idx]))
+
+                            # 디버깅: 거리값 찍기
+                            print(f"[디버그] bbox {(px, py)} → seatID {seat_num_cnt[idx].seatNum}, 좌표 ({seat_num_cnt[idx].xPos},{seat_num_cnt[idx].yPos}), 거리 제곱: {dist_val}")
+
+                        state_of_table = min(distance, key=lambda x: x[0])[1]
+
+                        # 디버깅: 최종 선택된 seatID 출력
+                        print(f"[디버그] bbox {(px, py)} → 선택된 seatID: {state_of_table.seatNum}")
+
                         if state_of_table[6] == "long_step_out": table_cnt = 3
                         elif state_of_table[6] == "step_out" : table_cnt = 2
                         elif state_of_table[6] == "using_table": table_cnt = 1
                         else : table_cnt = 0 # empty_table
-                        
+
                         if state_of_table[5] == 1:   dst = (dst[0] + 15, dst[1]-10)
                         elif state_of_table[5] == 2: dst = (dst[0] + 1, dst[1])
                         elif state_of_table[5] == 4: dst = (dst[0] - 10, dst[1] - 55)
@@ -419,59 +457,59 @@ def run(
                         elif state_of_table[5] == 6: dst = (dst[0] - 44, dst[1] + 3)
                         elif state_of_table[5] == 7: dst = (dst[0], dst[1] - 10)
                         elif state_of_table[5] == 8: dst = (dst[0] - 30, dst[1] + 60)
-                        
-                        #           xpos        ypos        box_width     box_height  table_shape  num  table_state 
+
+                        #           xpos        ypos        box_width     box_height  table_shape  num  table_state
                         if dic == "step_out":
                             ##################################################################################################
                             # send server format                                                                             #
                             ##################################################################################################
-                            
+
                             ##################################################################################################
                             # Detection for a period of time                                                                 #
                             ##################################################################################################
-                            
+
                             if state_of_table[6] == None: # 처음 시작할 때, None
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4],
-                                                state_of_table[5], "empty_table", state_of_table[7]+1]]
+                                                      state_of_table[5], "empty_table", state_of_table[7]+1]]
                                 # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, state_of_table[7])
                             elif state_of_table[6] == dic or state_of_table[6] == "long_step_out": #step_out
                                 if state_of_table[7] >= 3 and state_of_table[7] <= 5:
                                     seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4],
-                                                    state_of_table[5], state_of_table[6], state_of_table[7]+1]]
+                                                          state_of_table[5], state_of_table[6], state_of_table[7]+1]]
                                     # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, state_of_table[7])
 
                                 elif state_of_table[7] >= 5: # 5초 x 100 -> 500초 -> 5분
                                     seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5],
-                                                    "long_step_out", state_of_table[7]+1]]
+                                                          "long_step_out", state_of_table[7]+1]]
 
                                 else:
                                     seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3],
-                                                   state_of_table[4], state_of_table[5], state_of_table[6], state_of_table[7]+1]]
-                            
+                                                          state_of_table[4], state_of_table[5], state_of_table[6], state_of_table[7]+1]]
+
                             else:
-                                                         
+
                                 if state_of_table[7] >= 3:
                                     seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], "step_out", 0]]
                                 else:
                                     seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4],
-                                                    state_of_table[5], state_of_table[6], state_of_table[7]+1]]
-                                    
+                                                          state_of_table[5], state_of_table[6], state_of_table[7]+1]]
+
 
                         elif dic == "empty_table":
                             ##################################################################################################
                             # send server format
                             ##################################################################################################
                             # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, False)
-                            
+
                             if state_of_table[6] == None: # 처음 시작할 때, None
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], "empty_table", 0]]
                                 # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, state_of_table[7])
                             elif state_of_table[6] == dic: #empty_table
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], state_of_table[6], 0]]
-                                    # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, state_of_table[7]                            
+                                # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, state_of_table[7]
                             else:
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, 0]]
-                        
+
                         elif dic == "using_table":
                             ##################################################################################################
                             # send server format
@@ -480,25 +518,25 @@ def run(
                                 # print(state_of_table[5])
                                 # print(state_of_table[5]-1)
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4],
-                                                state_of_table[5], "empty_table", state_of_table[7]+1]]
+                                                      state_of_table[5], "using_table", state_of_table[7]+1]]
 
                             elif state_of_table[6] == dic: #step_out
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], state_of_table[6], 0]]
-                                # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, state_of_table[7] 
-                            
+                                # seatClass(state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, state_of_table[7]
+
                             else:
                                 seat_status_list += [[state_of_table[0], state_of_table[1], state_of_table[2], state_of_table[3], state_of_table[4], state_of_table[5], dic, 0]]
-                        
-                        
+
+
                         posDict[(int(dst[0]), int(dst[1]))] = dic
 
-                        
+
                         color_map = {
                             "empty_table": (255, 255, 255),      # white
                             "using_table": (17, 121, 191),          # coffee
                             "step_out": (0, 255, 255),           # yellow
                             "long_step_out": (0, 0, 255)         # red
-                        }   
+                        }
                         # 상태에 따른 색상 지정 (없으면 회색)
                         color = color_map.get(dic, (128, 128, 128))
 
@@ -514,6 +552,7 @@ def run(
                                          label,
                                          (int(dst[0]) - 30, int(dst[1]) - 35),
                                          FONT, 0.7, color, 2)
+                    print(seat_status_list)
 
                     # seat_status_list → status_list 형식 변환
                     statusList = []
@@ -543,7 +582,7 @@ def run(
 
                     cv2.imwrite(save_path + "dst.jpg", ds)
                     cv2.imwrite(save_path, im0)
-                    
+
                 else:  # 'video' or 'stream'
                     if vid_path[i] != save_path:  # new video
                         vid_path[i] = save_path
@@ -625,3 +664,4 @@ def Ex2(store_id):
 if __name__ == "__main__":
     opt = parse_opt()
     main(opt)
+

@@ -4,8 +4,8 @@ import hashlib
 import math
 import os
 
-# 해시를 저장할 파일 경로
 HASH_CACHE_FILE = "layout_hash_cache.json"
+
 
 def get_access_token_from_flask():
     try:

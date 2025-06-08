@@ -14,4 +14,5 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
 
     Optional<Seat> findByCafe_CafeIdAndSeatNumber(Long cafeId, Integer seatNumber);
 
+    void deleteByCafe_CafeId(Long cafeId);
 }

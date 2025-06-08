@@ -14,7 +14,7 @@ import subprocess
 
 app = Flask(__name__)
 CORS(app)  # ✅ 모든 origin 허용
-
+HASH_CACHE_FILE = "layout_hash_cache.json"
 
 # === 글로벌 변수 ===
 detect_thread = None
@@ -104,25 +104,19 @@ def upload_image():
 
         file = request.files['file']
         filename = f'aruco{store_id}.png'
-
-        # 업로드된 파일 저장 (uploads 폴더)
         os.makedirs("uploads", exist_ok=True)
         save_path = os.path.join("uploads", filename)
         file.save(save_path)
-        print(f"파일 저장 완료: {save_path}")
 
-        # 캘리브레이션 생성 및 저장
-        pts1, pts2, perspect_mat, img = load_calibration_from_aruco(save_path)
+        pts1, pts2, perspect_mat, img, size = load_calibration_from_aruco(save_path, padding=50)
         save_calibration(store_id, pts1, pts2)
 
-        # warped 이미지 생성
-        warped = cv2.warpPerspective(img, perspect_mat, (640, 480))
+        warped = cv2.warpPerspective(img, perspect_mat, size)
         warped_path = os.path.join("uploads", f"warped_{store_id}.jpg")
         cv2.imwrite(warped_path, warped)
-        print(f"Warped image saved: {warped_path}")
 
         return jsonify({
-            "message": "Calibration completed successfully.",
+            "message": "Calibration completed",
             "calibration_file": f"calibration/{store_id}.json",
             "warped_image": warped_path
         }), 200
@@ -194,4 +188,11 @@ def stop_detect():
     return jsonify({"message": "Detection stopping..."}), 200
 
 if __name__ == '__main__':
+    # 이 시점에서만 삭제되게
+    if os.path.exists("layout_hash_cache.json"):
+        os.remove("layout_hash_cache.json")
+        print(f"✅ 기존 hash 캐시파일 삭제됨: {HASH_CACHE_FILE}")
+    else:
+        print(f"✅ hash 캐시파일 없음 (신규 시작)")
+
     app.run(port=5001)

@@ -1,14 +1,4 @@
-import json
-import os
-import argparse
-import numpy as np
-import cv2
-
-def load_calibration_from_aruco(image_path):
-    """
-    Detect ArUco markers in the given image and compute perspective transform.
-    Requires 4 markers with IDs 0, 1, 2, and 3 placed at the corners.
-    """
+def load_calibration_from_aruco(image_path, padding=50):
     img = cv2.imread(image_path)
     if img is None:
         raise FileNotFoundError(f"Image not found: {image_path}")
@@ -29,6 +19,7 @@ def load_calibration_from_aruco(image_path):
                 ref_pts[ids[i]] = corners[i][0].mean(axis=0)
 
         if len(ref_pts) == 4:
+            # 기준 좌표
             pts1 = np.float32([
                 ref_pts[0],  # top-left
                 ref_pts[1],  # top-right
@@ -36,16 +27,18 @@ def load_calibration_from_aruco(image_path):
                 ref_pts[3],  # bottom-left
             ])
 
+            # padding 적용한 넓은 출력 영역
+            width = 640 + 2 * padding
+            height = 480 + 2 * padding
             pts2 = np.float32([
-                [0, 0],
-                [640, 0],
-                [640, 480],
-                [0, 480]
+                [padding, padding],
+                [padding + 640, padding],
+                [padding + 640, padding + 480],
+                [padding, padding + 480]
             ])
 
             perspect_mat = cv2.getPerspectiveTransform(pts1, pts2)
-            return pts1.tolist(), pts2.tolist(), perspect_mat, img
-
+            return pts1.tolist(), pts2.tolist(), perspect_mat, img, (width, height)
         else:
             raise ValueError("Required ArUco markers with IDs 0, 1, 2, 3 not detected.")
     else:
@@ -57,33 +50,28 @@ def save_calibration(store_id, pts1, pts2):
         "pts2": pts2
     }
     os.makedirs("calibration", exist_ok=True)
-    calibration_path = os.path.join("calibration", f"{store_id}.json")
-    with open(calibration_path, "w") as f:
+    path = os.path.join("calibration", f"{store_id}.json")
+    with open(path, "w") as f:
         json.dump(calibration_data, f, indent=4)
-    print(f"Calibration data saved to {calibration_path}")
+    print(f"Calibration data saved to {path}")
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Generate and save perspective calibration from ArUco markers')
-    parser.add_argument('--image', type=str, required=True, help='Path to image containing ArUco markers')
-    parser.add_argument('--store-id', type=str, required=True, help='Unique identifier for the store (e.g., store1)')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--image', type=str, required=True)
+    parser.add_argument('--store-id', type=str, required=True)
+    parser.add_argument('--padding', type=int, default=50)
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_arguments()
-
     try:
-        pts1, pts2, perspect_mat, img = load_calibration_from_aruco(args.image)
-        print("Perspective Matrix Loaded Successfully:")
-        print(perspect_mat)
-
+        pts1, pts2, mat, img, size = load_calibration_from_aruco(args.image, args.padding)
         save_calibration(args.store_id, pts1, pts2)
 
-        # Optional: Apply and save warped image for verification
-        warped = cv2.warpPerspective(img, perspect_mat, (640, 480))
+        warped = cv2.warpPerspective(img, mat, size)
         output_path = f"warped_{args.store_id}.jpg"
         cv2.imwrite(output_path, warped)
-        print(f"Warped output saved as {output_path}")
-
+        print(f"Warped image saved: {output_path}")
     except Exception as e:
         print(e)
         exit(1)

@@ -391,10 +391,17 @@ def run(
 
                         cnt += 1
 
-                    send_seat_layout_if_changed(cafe_id, seatList)
-
                     # seat layout 보내고 난 뒤에 seatList 길이 확인
                     if len(seatList) > 0:
+                        # ✅ seat_Num.p 파일로 저장 (detect_run2에서 이걸 불러옴)
+                        with open('backup/seat_Num.p', 'wb') as seat_num_file:
+                            for entry in seatList:
+                                # seatClass 형태로 변환 후 저장
+                                seat_obj = seatClass(
+                                    entry['x'], entry['y'], entry['width'], entry['height'],
+                                    entry['shape'], entry['seatID'], None, 0
+                                )
+                                pickle.dump(seat_obj, seat_num_file)
                         send_seat_layout_if_changed(cafe_id, seatList)
                         sys.exit(0)  # 감지 성공
                     else:
