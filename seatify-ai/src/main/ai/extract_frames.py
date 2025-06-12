@@ -1,39 +1,48 @@
 import cv2
 import os
-import shutil  # 폴더 삭제를 위해 필요
 
-# 사용할 영상 파일 경로
-video_path = 'cafe.mp4'
+def extract_frames(video_path, output_dir, frame_interval=1):
+    image_dir = os.path.join(output_dir, "images")
+    label_dir = os.path.join(output_dir, "labels")
+    os.makedirs(image_dir, exist_ok=True)
+    os.makedirs(label_dir, exist_ok=True)
 
-# 프레임 저장 폴더
-frames_dir = "frames"
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise IOError(f"Cannot open video: {video_path}")
 
-# 기존 frames 폴더가 있으면 삭제하고 새로 생성
-if os.path.exists(frames_dir):
-    shutil.rmtree(frames_dir)
-os.makedirs(frames_dir)
+    frame_count = 0
+    saved_count = 0
 
-# 영상 열기
-cap = cv2.VideoCapture(video_path)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-if not cap.isOpened():
-    print("비디오 파일 열기 실패")
-    exit()
+        if frame_count % frame_interval == 0:
+            # 현재 재생 시간(밀리초) 가져오기
+            millisec = cap.get(cv2.CAP_PROP_POS_MSEC)
+            seconds = int(millisec // 1000)
+            minutes = seconds // 60
+            secs = seconds % 60
 
-frame_count = 0
+            # "mm-ss" 형식의 이름
+            time_str = f"{minutes:02d}-{secs:02d}"
+            img_name = f"{time_str}.jpg"
+            img_path = os.path.join(image_dir, img_name)
+            cv2.imwrite(img_path, frame)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+            # 빈 라벨 파일도 같은 이름으로 생성
+            label_path = os.path.join(label_dir, f"{time_str}.txt")
+            open(label_path, "w").close()
 
-    frame_count += 1
+            saved_count += 1
 
-    # 30프레임마다 1장씩 저장 (FPS=30 기준: 1초당 1장)
-    if frame_count % 30 == 0:
-        frame_filename = os.path.join(frames_dir, f"frame_{frame_count}.jpg")
-        cv2.imwrite(frame_filename, frame)
-        print(f"Saved frame: {frame_filename}")
+        frame_count += 1
 
-cap.release()
-print("모든 프레임 추출 완료")
+    cap.release()
+    print(f"Saved {saved_count} frames to {image_dir}")
+
+video_path = "cafe.mp4"
+output_dir = "frames"
+extract_frames(video_path, output_dir, frame_interval=30)

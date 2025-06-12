@@ -57,12 +57,14 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
                            increment_path, non_max_suppression, print_args, scale_coords, strip_optimizer, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
+from calibration_loader import load_calibration_from_json
 
 def convert_perspective(perspect_mat, x, y):
     pts = np.array([[[x, y]]], dtype=np.float32)  # (1, 1, 2) 형태
     dst = cv2.perspectiveTransform(pts, perspect_mat)
     return dst[0][0][0], dst[0][0][1]  # x, y 반환
 
+'''
 def load_calibration(store_id):
     filepath = f'./calibration/store{store_id}.json'  # ✅ 수정된 경로
     if not os.path.exists(filepath):
@@ -74,7 +76,7 @@ def load_calibration(store_id):
     pts2 = np.float32(data['pts2'])
     perspect_mat = cv2.getPerspectiveTransform(pts1, pts2)
     return perspect_mat
-
+'''
 
 class seatSave:
     def __init__(self, xPos, yPos, width, height, seatShape, seatNum, seatInfo, seatCount):
@@ -99,10 +101,10 @@ class seatSave:
         print(f'seatCount: {self.seatCount}')
 
 class seatClass:
-    # seatShape mean -> table or longtable
+    # seatShape mean -> table
     # seatNum is Number of Seat
     # seatInfo is state of table
-    
+
     # count
     def __init__(self, xPos, yPos, width, height, seatShape, seatNum, seatInfo, seatCount):
         self.xPos = xPos
@@ -123,8 +125,8 @@ class seatClass:
         print(f'seatNum: {self.seatNum}')
         print(f'seatInfo: {self.seatInfo}')
         print(f'seatCount: {self.seatCount}')
-        
-        
+
+
 @torch.no_grad()
 def run(
         weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
@@ -176,8 +178,8 @@ def run(
     stride, names, pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)  # check image size -> 480 x 640
     # 이미지 보간법. 2560 x 1920 사이즈일 경우 ratioX = 0.25, 0.33333
-    
-    
+
+
     # print(imgsz)
 
     # Dataloader
@@ -221,27 +223,19 @@ def run(
         # Second-stage classifier (optional)
         # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
 
-        # Process predictions
-        
-        perspec = pred[0]
-        # print about coordinate type tensor
-        # print(perspec)
-        mid_x = []; mid_y = []
-        for i in perspec:
-            li = []
-            for val in i:
-                value = round(val.item(), 2)
-                li.append(value)
-            
-            mid_x.append((li[0]+li[2])/2)
-            mid_y.append((li[1]+li[3])/2)
-            
-            
-            # print(li) #print prespec tensor -> list
-        mid_x.reverse()
-        mid_y.reverse()
-        
         for i, det in enumerate(pred):  # per image
+
+            mid_x = []
+            mid_y = []
+            box_w = []
+            box_h = []
+
+            for *xyxy, conf, cls in reversed(det):
+                x1, y1, x2, y2 = xyxy  # 이건 scale_coords 적용된 원본 좌표임
+                mid_x.append((x1 + x2) / 2)
+                mid_y.append((y1 + y2) / 2)
+                box_w.append(x2 - x1)
+                box_h.append(y2 - y1)
 
             di = list()
             seen += 1
@@ -258,7 +252,7 @@ def run(
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             imc = im0.copy() if save_crop else im0  # for save_crop
             annotator = Annotator(im0, line_width=line_thickness, example=str(names))
-            
+
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
@@ -267,12 +261,12 @@ def run(
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string s-> class 이름 저장
-                    # image 1/1 C:\Users\hallym\Desktop\capstone\yolov5\empty_or_using_dataset\test\images\train_161_01.jpg: 480x640 7 empty_tables, 
-            
+                    # image 1/1 C:\Users\hallym\Desktop\capstone\yolov5\empty_or_using_dataset\test\images\train_161_01.jpg: 480x640 7 empty_tables,
+
                 # Write results, 좌표값과 신뢰도 출력!
                 cnt = 0
                 for *xyxy, conf, cls in reversed(det):
-                        
+
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
@@ -295,73 +289,119 @@ def run(
             else:
                 print(f"[{p.name}] 감지된 객체 없음 → 프로세스 종료")
                 sys.exit(1)
-            
+
             # Stream results
             #print(di) # print about table_shape , di == table_shape
             im0 = annotator.result()
             if view_img:
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
-            
-            
+
+
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
-                    
+
                     # if you can need perspective image, use this coordinate
                     # pts1 = np.float32([(62 * 4, 248 * 4 ), (309 * 4, 207* 4) ,  (593 *4, 255*4), (246*4, 362*4)])
-                    # # Desk coordinates based on camera position                    
+                    # # Desk coordinates based on camera position
                     # pts11 = np.float32([(62, 248), (309, 207) , (593, 255), (246, 362)])
 
-                    '''
-                    pts1 = np.float32([(15 * 4, 130 * 4 ), (305 * 4, 80 * 4) ,  (635 *4, 200*4), (110*4, 370*4)])
-                    # Desk coordinates based on camera position                    
-                    pts11 = np.float32([ (15, 130), (305, 80), (635, 200),(110, 370) ])
-                    # image corrdinates
-                    pts2 = np.float32([(0, 0), (640, 0), (640, 480), (0, 480)])
-                    
-                    perspect_mat = cv2.getPerspectiveTransform(pts11, pts2)  # perspective about coordinate
-                    perspect_mat_image = cv2.getPerspectiveTransform(pts1, pts2)  # perspecrive about image
-                    '''
+                     # 원본 이미지 복사본 만들기
+                    im0_original = im0s.copy()
 
-                    # store_id가 argparse로 넘어온다는 가정
-                    perspect_mat = load_calibration(store_id)
-                    dst = cv2.warpPerspective(im0, perspect_mat, (640, 480))
+                    # det은 이미 scale_coords를 통해 원본 이미지 기준으로 변환됨
+                    for *xyxy, conf, cls in det:
+                        x1, y1, x2, y2 = map(int, xyxy)
+                        color = (255, 0, 0)  # 예: 파란색 사각형
+                        cv2.rectangle(im0_original, (x1, y1), (x2, y2), color, 2)
 
-                    #print(type(dst))           # numpy.ndarray 여야 함
-                    #print(dst.shape)           # 예: (H, W, 3) 또는 (H, W)
-                    #print(dst.dtype)           # 예: uint8
-                    cv2.imwrite(save_path + "warpPerspect.jpg", dst)
+                    # 저장 경로
+                    cv2.imwrite(save_path + "original_bbox.jpg", im0_original)
+
+                    # 원본 이미지 im0 기준으로 적용
+                    height, width = im0.shape[:2]
+
+                    # Load calibration
+                    perspect_mat, shift_x, shift_y = load_calibration_from_json(store_id)
+
+                    # 원본 이미지 im0 기준으로 적용
+                    height, width = im0.shape[:2]
+
+                    # ① perspective transform 먼저
+                    dst = cv2.warpPerspective(im0, perspect_mat, (width, height))
+
+                    # ② 그 이후 shift 적용 (좌표 이동)
+                    M_shift = np.array([[1, 0, shift_x], [0, 1, shift_y]], dtype=np.float32)
+                    dst_shifted = cv2.warpAffine(dst, M_shift, (width + shift_x, height + shift_y))
+
+                    # ③ 저장
+                    cv2.imwrite(save_path + "warpPerspect.jpg", dst_shifted)
 
                     # 1. 캔버스 확장 (2배 크기)
                     ds = np.zeros((960, 1280, 3))  # save img with larger canvas
 
-                    # 2. 오프셋 정의 (원점 이동)
-                    OFFSET_X = 300
-                    OFFSET_Y = 300  
 
                     posDict = dict()
-                    cnt = 1 
                     print(f"[Debug] mid_x: {mid_x}")
                     print(f"[Debug] mid_y: {mid_y}")
                     print(f"[Debug] di: {di}")
 
-                    for px, py, dic in zip(mid_x, mid_y, di):
-                        dst = convert_perspective(perspect_mat, px, py)
-                        new_x = int(dst[0]) + OFFSET_X
-                        new_y = int(dst[1]) + OFFSET_Y
 
-                        if dic == "table":
-                            ds = cv2.rectangle(ds, (int(dst[0])-60, int(dst[1])-60), (int(dst[0])+60, int(dst[1])+60), (255, 255, 255), 2)
-                        elif dic == "longtable":
-                            ds = cv2.rectangle(ds, (int(dst[0])-60, int(dst[1])-60), (int(dst[0])+60, int(dst[1])+120), (0, 75, 150), 2)
+                    # 2. 오프셋 정의 (원점 이동)
+                    OFFSET_X = 300
+                    OFFSET_Y = 300
 
-                        posDict[(new_x, new_y)] = dic
+                    for px, py, bw, bh, dic in zip(mid_x, mid_y, box_w, box_h, di):
+                        print(f"Before perspective px={px}, py={py}, bw={bw}, bh={bh}")
+                        points = [
+                            (px - bw / 2, py - bh / 2),
+                            (px + bw / 2, py - bh / 2),
+                            (px + bw / 2, py + bh / 2),
+                            (px - bw / 2, py + bh / 2),
+                        ]
+
+                        # perspective 변환
+                        converted_points = [convert_perspective(perspect_mat, x, y) for (x, y) in points]
+                        print(converted_points)
+
+                        # 가로: 상단, 하단 거리 평균
+                        top_width = np.linalg.norm(np.array(converted_points[0]) - np.array(converted_points[1]))
+                        bottom_width = np.linalg.norm(np.array(converted_points[2]) - np.array(converted_points[3]))
+                        new_w = (top_width + bottom_width) / 2
+
+                        # 세로: 좌측, 우측 거리 평균
+                        left_height = np.linalg.norm(np.array(converted_points[0]) - np.array(converted_points[3]))
+                        right_height = np.linalg.norm(np.array(converted_points[1]) - np.array(converted_points[2]))
+                        new_h = (left_height + right_height) / 2
+
+                        # 중심 좌표 계산 (min, max 먼저 구함)
+                        xs = [p[0] for p in converted_points]
+                        ys = [p[1] for p in converted_points]
+
+                        min_x, max_x = min(xs), max(xs)
+                        min_y, max_y = min(ys), max(ys)
+
+                        center_x = (min_x + max_x) / 2
+                        center_y = (min_y + max_y) / 2
+
+                        # 최종 오프셋 적용
+                        new_x = int(center_x + OFFSET_X)
+                        new_y = int(center_y + OFFSET_Y)
+
+                        # 디버깅용 박스 그림 (optional)
+                        ds = cv2.rectangle(ds,
+                                           (int(min_x), int(min_y)),
+                                           (int(max_x), int(max_y)),
+                                           (255, 255, 255), 2)
+
+                        posDict[(new_x, new_y, new_w, new_h)] = dic
+
 
                     cnt = 1
                     seatList = []
 
-                    for (i, j), shape in posDict.items():
+                    for (i, j, w, h), shape in posDict.items():
                         if cnt == 1:   plus_x = 15;  plus_y = -10
                         elif cnt == 2: plus_x = 1;   plus_y = 0
                         elif cnt == 4: plus_x = -10; plus_y = -55
@@ -373,9 +413,9 @@ def run(
 
                         seat_id = cnt
                         seat_x = i + 15 + plus_x
-                        seat_y = j - 15 + plus_y if shape == "table" else j + 15 + plus_y
-                        seat_w = 90
-                        seat_h = 90 if shape == "table" else 150
+                        seat_y = j - 15 + plus_y
+                        seat_w = int(w)
+                        seat_h = int(h)
                         seat_shape = shape
 
                         seatList.append({
@@ -410,7 +450,7 @@ def run(
 
                     cv2.imwrite(save_path + "dst.jpg", ds)
                     cv2.imwrite(save_path, im0)
-                    
+
                 else:  # 'video' or 'stream'
                     if vid_path[i] != save_path:  # new video
                         vid_path[i] = save_path
@@ -441,8 +481,8 @@ def run(
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    
-    
+
+
     ## we must setting this parameters
     ############################################################################################################################################
     parser.add_argument('--weights', nargs='+', type=str, default = 'train/exp3_table_shape/weights/best.pt', help='model path(s)')
@@ -453,14 +493,14 @@ def parse_opt():
     ############################################################################################################################################
 
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
-    
-    
+
+
     # decide image confidence and IOU
     ############################################################################################################################################
     parser.add_argument('--conf-thres', type=float, default=0.75, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
     ############################################################################################################################################
-    
+
     parser.add_argument('--max-det', type=int, default=1000, help='maximum detections per image')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='show results')
@@ -473,12 +513,12 @@ def parse_opt():
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--visualize', action='store_true', help='visualize features')
     parser.add_argument('--update', action='store_true', help='update all models')
-    
+
     # result dir 
     parser.add_argument('--project', default= './runs/detect', help='save results to project/name')
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
-    
+
     # print line thickness
     parser.add_argument('--line-thickness', default=1, type=int, help='bounding box thickness (pixels)')
     parser.add_argument('--hide-labels', default=False, action='store_true', help='hide labels')

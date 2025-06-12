@@ -1,3 +1,18 @@
+
+import json
+import os
+import argparse
+import numpy as np
+import cv2
+
+def load_calibration(store_id):
+    with open(f'./calibration/store{store_id}.json', 'r') as f:
+        data = json.load(f)
+    pts1 = np.float32(data['pts1'])
+    pts2 = np.float32(data['pts2'])
+    perspect_mat = cv2.getPerspectiveTransform(pts1, pts2)
+    return perspect_mat
+
 def load_calibration_from_aruco(image_path, padding=50):
     img = cv2.imread(image_path)
     if img is None:
@@ -19,15 +34,13 @@ def load_calibration_from_aruco(image_path, padding=50):
                 ref_pts[ids[i]] = corners[i][0].mean(axis=0)
 
         if len(ref_pts) == 4:
-            # 기준 좌표
             pts1 = np.float32([
-                ref_pts[0],  # top-left
-                ref_pts[1],  # top-right
-                ref_pts[2],  # bottom-right
-                ref_pts[3],  # bottom-left
+                ref_pts[0],
+                ref_pts[1],
+                ref_pts[2],
+                ref_pts[3],
             ])
 
-            # padding 적용한 넓은 출력 영역
             width = 640 + 2 * padding
             height = 480 + 2 * padding
             pts2 = np.float32([
@@ -39,11 +52,11 @@ def load_calibration_from_aruco(image_path, padding=50):
 
             perspect_mat = cv2.getPerspectiveTransform(pts1, pts2)
             return pts1.tolist(), pts2.tolist(), perspect_mat, img, (width, height)
-        else:
-            raise ValueError("Required ArUco markers with IDs 0, 1, 2, 3 not detected.")
-    else:
-        raise ValueError("No sufficient ArUco markers detected.")
 
+        else:
+            raise ValueError("Required ArUco markers not found.")
+    else:
+        raise ValueError("Insufficient ArUco markers.")
 def save_calibration(store_id, pts1, pts2):
     calibration_data = {
         "pts1": pts1,

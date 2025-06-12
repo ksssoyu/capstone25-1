@@ -73,7 +73,7 @@
             <AppenderRef ref="file"/>
         </logger>
 
-        <logger name="com.cafein" level="debug" additivity="false">
+        <logger name="com.seatify" level="debug" additivity="false">
             <AppenderRef ref="console"/>
         </logger>
 
